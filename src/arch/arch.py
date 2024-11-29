@@ -75,7 +75,7 @@ class arch_tools:
                         symbol_name = m.group(2)
                         current_symbol = symbol_name
                         if symbol_name not in symbols:
-                            symbols[symbol_name] = {}
+                            symbols[symbol_name] = {'addr': int(address, 16), 'instr': {}}
                     else:
                         if current_symbol:
                             # decode address
@@ -83,5 +83,5 @@ class arch_tools:
                             addr = int(instr_tuple[0].strip()[:-1], 16)
                             hex_code = int(instr_tuple[1].strip(), 16)
                             rest = "\t".join(instr_tuple[2:])
-                            symbols[current_symbol][addr] = (hex_code, rest)
+                            symbols[current_symbol]['instr'][addr] = (hex_code, rest)
             return symbols
