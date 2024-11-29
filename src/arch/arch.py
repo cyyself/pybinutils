@@ -5,6 +5,7 @@ import tempfile
 import os
 import re
 from collections import OrderedDict
+import sys
 
 def lpe_filename(line_program, file_index):
     lp_header = line_program.header
@@ -52,7 +53,6 @@ class arch_tools:
     # Return {symbol_name: {addr: address, instr: {addr: (hex_code, instr)}}}
     def read_textdump(self, objdump_opts=''):
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            print(tmp.name)
             if os.system(f'{self.objdump} {objdump_opts} -d {self.elf_path} > {tmp.name}') != 0:
                 raise Exception('Failed to objdump ELF file')
             section_re = re.compile(r'^Disassembly of section ([^:]+):$')
@@ -111,10 +111,16 @@ class arch_tools:
                         target = instr[1][pos_l+1:pos_r]
                         if '+' in target:
                             target_tuple = target.split('+')
-                            try:
+                            if target_tuple[0] in textdump:
                                 target_addr = textdump[target_tuple[0]]['addr'] + int(target_tuple[1], 16)
-                            except:
-                                raise Exception(f"Unable to decode target address {target}")
+                            else:
+                                print(f"Warning: Unable to decode target address {target}", file=sys.stderr)
+                        elif '-' in target:
+                            target_tuple = target.split('-')
+                            if target_tuple[0] in textdump:
+                                target_addr = textdump[target_tuple[0]]['addr'] - int(target_tuple[1], 16)
+                            else:
+                                print(f"Warning: Unable to decode target address {target}", file=sys.stderr)
                         else:
                             if target in textdump:
                                 target_addr = textdump[target]['addr']
