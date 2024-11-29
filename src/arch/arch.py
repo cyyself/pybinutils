@@ -48,6 +48,7 @@ class arch_tools:
                 pc_loc_file[pc].append((filename, line_num, col_num))
         return (file_loc_pc, pc_loc_file)
 
+    # Return {symbol_name: {addr: address, instr: {addr: (hex_code, instr)}}}
     def read_textdump(self, objdump_opts=''):
         with tempfile.NamedTemporaryFile() as tmp:
             if os.system(f'{self.objdump} {objdump_opts} -d {self.elf_path} > {tmp.name}') != 0:
