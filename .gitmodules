@@ -1,0 +1,3 @@
+[submodule "ext/insn-db"]
+	path = ext/insn-db
+	url = https://github.com/cyyself/insn-db.git
