@@ -36,3 +36,11 @@ class riscv64_tools(arch_tools):
     
     def read_textdump(self):
         return super().read_textdump('-M no-aliases')
+
+    def is_control_flow_instr(self, instr):
+        # instr should be (hex_code, instr) from read_textdump
+        instr = instr[1].split("\t")[0].strip()
+        return instr in [
+            'beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu', 'jal', 'jalr' # RV64I
+            'c.beqz', 'c.bnez', 'c.jr', 'c.jalr', 'c.j'
+        ]
