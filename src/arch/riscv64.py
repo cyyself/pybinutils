@@ -35,7 +35,7 @@ class riscv64_tools(arch_tools):
         return super().read_dwarf()
     
     def read_textdump(self):
-        return super().read_textdump('-M no-aliases')
+        return super().read_textdump('-M no-aliases -M,max')
 
     def is_control_flow_instr(self, instr):
         # instr should be (hex_code, instr) from read_textdump
