@@ -41,5 +41,9 @@ class aarch64_tools(arch_tools):
         # instr should be (hex_code, instr) from read_textdump
         instr = instr[1].split("\t")[0].strip()
         return instr in [
-            'b', 'bl', 'blx', 'bx', 'cbz', 'cbnz', 'tbnz', 'tbz', 'ret', 'br', 'blr', 'brk', 'svc', 'hvc', 'smc', 'eret', 'drps' # TODO: more instruction?
+            'b', 'bl', 'br', 'blr', 'ret', # v8-branch
+            'cbz', 'cbnz', # v8-compbranch
+            'tbnz', 'tbz', # v8-testbranch
+            'b.c', # v8-condbranch
+            'braa', 'brab', 'blraa', 'blrab', 'braaz', 'brabz', 'blraaz', 'blrabz', 'retaa', 'retab' # pauth-branch
         ]
