@@ -6,7 +6,7 @@ import tempfile
 import os
 
 class riscv64_tools(arch_tools):
-    def __init__(self, elf_path, cflags = '-no-pie', cc='riscv64-linux-gnu-gcc', objdump='riscv64-linux-gnu-objdump'):
+    def __init__(self, elf_path, cflags='-no-pie', cc='riscv64-linux-gnu-gcc', objdump='riscv64-linux-gnu-objdump'):
         self.elf_path = elf_path
         self.cc = cc
         self.objdump = objdump
