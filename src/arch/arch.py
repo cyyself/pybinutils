@@ -10,21 +10,26 @@ import sys
 def lpe_filename(line_program, file_index):
     lp_header = line_program.header
     file_entries = lp_header["file_entry"]
-    file_entry = file_entries[file_index - 1]
+    if lp_header.version < 5:
+        file_index -= 1
+    if file_index == -1:
+        return None
+    file_entry = file_entries[file_index]
     dir_index = file_entry["dir_index"]
-    if dir_index == 0:
+    if dir_index == 0 and lp_header.version < 5:
         return file_entry.name.decode()
-    directory = lp_header["include_directory"][dir_index - 1]
+    if lp_header.version < 5:
+        dir_index -= 1
+    directory = lp_header["include_directory"][dir_index]
     return posixpath.join(directory, file_entry.name).decode()
 
 class arch_tools:
     def open_elf(self, elf_path):
         assert False, "Not implemented"
 
-    # Return ({filename: {line: {col: [pc, ...] }}}, {pc: [(filename, line, col)] })
+    # Return ({filename: [line, col, pc, is_stmt, basic_block, end_sequence, prologue_end]})
     def read_dwarf(self):
-        file_loc_pc = OrderedDict() # {filename: {line: {col: [pc, ...] }}}
-        pc_loc_file = OrderedDict() # {pc: [(filename, line, col)] }
+        res = {}
         dwarfinfo = self.elf.get_dwarf_info()
         for CU in dwarfinfo.iter_CUs():
             line_program = dwarfinfo.line_program_for_CU(CU)
@@ -32,23 +37,22 @@ class arch_tools:
                 continue
             lp_entries = line_program.get_entries()
             for lpe in lp_entries:
-                if not lpe.state or lpe.state.file == 0:
+                if not lpe.state:
                     continue
                 filename = lpe_filename(line_program, lpe.state.file)
+                if filename is None:
+                    continue
                 line_num = lpe.state.line
                 col_num = lpe.state.column
                 pc = lpe.state.address
-                if filename not in file_loc_pc:
-                    file_loc_pc[filename] = OrderedDict()
-                if line_num not in file_loc_pc[filename]:
-                    file_loc_pc[filename][line_num] = OrderedDict()
-                if col_num not in file_loc_pc[filename][line_num]:
-                    file_loc_pc[filename][line_num][col_num] = []
-                file_loc_pc[filename][line_num][col_num].append(pc)
-                if pc not in pc_loc_file:
-                    pc_loc_file[pc] = []
-                pc_loc_file[pc].append((filename, line_num, col_num))
-        return (file_loc_pc, pc_loc_file)
+                is_stmt = True if lpe.state.is_stmt else False
+                basic_block = True if lpe.state.basic_block else False
+                end_sequence = True if lpe.state.end_sequence else False
+                prologue_end = True if lpe.state.prologue_end else False
+                if filename not in res:
+                    res[filename] = []
+                res[filename].append([line_num, col_num, pc, is_stmt, basic_block, end_sequence, prologue_end])
+        return res
 
     # Return {symbol_name: {addr: address, instr: {addr: (hex_code, instr)}}}
     def read_textdump(self, objdump_opts=''):
