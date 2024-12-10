@@ -132,7 +132,7 @@ class arch_tools:
                                 try:
                                     target_addr = int(target, 16)
                                 except:
-                                    raise Exception(f"Unable to decode target address {target}")
+                                    print(f"Warning: Unable to decode target address {target}", file=sys.stderr)
                     if target_addr:
                         trans_in.add(target_addr)
                         if target_addr not in trans_edge:
