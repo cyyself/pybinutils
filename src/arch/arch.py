@@ -23,6 +23,8 @@ def lpe_filename(line_program, file_index):
     directory = lp_header["include_directory"][dir_index]
     return posixpath.join(directory, file_entry.name).decode()
 
+skip_target = set()
+
 class arch_tools:
     def open_elf(self, elf_path):
         assert False, "Not implemented"
@@ -118,13 +120,17 @@ class arch_tools:
                             if target_tuple[0] in textdump:
                                 target_addr = textdump[target_tuple[0]]['addr'] + int(target_tuple[1], 16)
                             else:
-                                print(f"Warning: Unable to decode target address {target}", file=sys.stderr)
+                                if target not in skip_target:
+                                    print(f"Warning: Unable to decode target address {target}", file=sys.stderr)
+                                    skip_target.add(target)
                         elif '-' in target:
                             target_tuple = target.split('-')
                             if target_tuple[0] in textdump:
                                 target_addr = textdump[target_tuple[0]]['addr'] - int(target_tuple[1], 16)
                             else:
-                                print(f"Warning: Unable to decode target address {target}", file=sys.stderr)
+                                if target not in skip_target:
+                                    print(f"Warning: Unable to decode target address {target}", file=sys.stderr)
+                                    skip_target.add(target)
                         else:
                             if target in textdump:
                                 target_addr = textdump[target]['addr']
@@ -132,7 +138,9 @@ class arch_tools:
                                 try:
                                     target_addr = int(target, 16)
                                 except:
-                                    print(f"Warning: Unable to decode target address {target}", file=sys.stderr)
+                                    if target not in skip_target:
+                                        print(f"Warning: Unable to decode target address {target}", file=sys.stderr)
+                                        skip_target.add(target)
                     if target_addr:
                         trans_in.add(target_addr)
                         if target_addr not in trans_edge:
