@@ -43,3 +43,7 @@ class riscv64_tools(arch_tools):
             'beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu', 'jal', 'jalr', # RV64I
             'c.beqz', 'c.bnez', 'c.jr', 'c.jalr', 'c.j' # RV64C
         ]
+
+    def is_control_flow_end(self, instr):
+        instr = instr[1].split("\t")[0].strip()
+        return instr in ['jalr'] and 'ra' in instr

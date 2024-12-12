@@ -98,6 +98,9 @@ class arch_tools:
     def is_control_flow_instr(self, instr):
         assert False, "Not implemented"
 
+    def is_control_flow_end(self, instr):
+        assert False, "Not implemented"
+
     # Return ({symbol_name: {addr: address, bb: {bbstart: {addr: address, instr: {addr: (hex_code, instr)}}}}}, {trans_dst: [trans_src]})
     def read_basic_blocks(self, textdump):
         # Split basic blocks based on textdump
@@ -106,7 +109,9 @@ class arch_tools:
         trans_edge = dict()
         for sym in textdump:
             instrs = textdump[sym]['instr']
-            for addr in instrs:
+            addr_list = list(instrs.keys())
+            for idx in range(len(addr_list)):
+                addr = addr_list[idx]
                 instr = instrs[addr]
                 if self.is_control_flow_instr(instr):
                     trans_out.add(addr)
@@ -143,9 +148,15 @@ class arch_tools:
                                         skip_target.add(target)
                     if target_addr:
                         trans_in.add(target_addr)
-                        if target_addr not in trans_edge:
-                            trans_edge[target_addr] = []
-                        trans_edge[target_addr].append(addr)
+                        if addr not in trans_edge:
+                            trans_edge[addr] = set()
+                        trans_edge[addr].add(target_addr)
+                    if not self.is_control_flow_end(instr) and idx + 1 < len(addr_list):
+                        next_addr = addr_list[idx+1]
+                        trans_in.add(next_addr)
+                        if addr not in trans_edge:
+                            trans_edge[addr] = set()
+                        trans_edge[addr].add(next_addr)
         # Split basic blocks
         res = dict()
         for sym in textdump:
@@ -153,10 +164,20 @@ class arch_tools:
             bb = OrderedDict()
             cur_bb = None
             cur_instr = OrderedDict()
-            for addr in sorted(instrs):
+            addr_list = list(sorted(instrs.keys()))
+            for idx in range(len(addr_list)):
+                addr = addr_list[idx]
                 if cur_bb is None:
                     cur_bb = addr
                 if addr in trans_in:
+                    # Check last edge exist in basic block
+                    if idx > 0:
+                        last_addr = addr_list[idx-1]
+                        if last_addr not in trans_out:
+                            if last_addr not in trans_edge:
+                                trans_edge[last_addr] = set()
+                            trans_edge[last_addr].add(addr)
+                    # Add current basic block
                     if len(cur_instr) > 0:
                         bb[cur_bb] = cur_instr
                     cur_instr = OrderedDict()

@@ -46,3 +46,7 @@ class aarch64_tools(arch_tools):
             'b.c', # v8-condbranch
             'braa', 'brab', 'blraa', 'blrab', 'braaz', 'brabz', 'blraaz', 'blrabz', 'retaa', 'retab' # pauth-branch
         ]
+
+    def is_control_flow_end(self, instr):
+        instr = instr[1].split("\t")[0].strip()
+        return instr in ['ret', 'retaa', 'retab']
