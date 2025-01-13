@@ -2,8 +2,8 @@
 
 import sys
 from arch.arch import arch_tools
-from bb_utils import basic_block_size
-from cfg import cfg_builder
+from analyze.bb_utils import basic_block_size
+from analyze.cfg import cfg_builder
 
 if __name__ == "__main__":
     elf_file = sys.argv[1]

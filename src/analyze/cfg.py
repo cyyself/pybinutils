@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from dom_tree import build_dom_tree
+from analyze.dom_tree import build_dom_tree
 import graphviz
 
 class cfg_builder:
