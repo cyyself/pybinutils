@@ -6,6 +6,7 @@ import os
 import re
 from collections import OrderedDict
 import sys
+from elftools.elf.elffile import ELFFile
 
 def lpe_filename(line_program, file_index):
     lp_header = line_program.header
@@ -26,8 +27,17 @@ def lpe_filename(line_program, file_index):
 skip_target = set()
 
 class arch_tools:
-    def open_elf(self, elf_path):
-        assert False, "Not implemented"
+    def open_elf(elf_path):
+        from arch.aarch64 import aarch64_tools
+        from arch.riscv64 import riscv64_tools
+        f = open(elf_path, 'rb')
+        elf = ELFFile(f)
+        if elf['e_machine'] == 'EM_AARCH64':
+            return aarch64_tools(elf_path)
+        elif elf['e_machine'] == 'EM_RISCV':
+            return riscv64_tools(elf_path)
+        else:
+            raise Exception('Unsupported ELF file')
 
     # Return ({filename: [line, col, pc, is_stmt, basic_block, end_sequence, prologue_end]})
     def read_dwarf(self):
