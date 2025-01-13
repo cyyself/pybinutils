@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-# graph should be {node: [child1, child2, ...], ...}
-# return domtree {node: [child1, child2, ...], ...}
+# graph should be {node1: [child1, child2, ...], node2: [child1, child2, ...], ...}
+# return domtree {node: {child1, subchild1: {subsubchild1, ...}, ...}, ...}
 def build_dom_tree(graph: dict, start):
     revgraph = dict()
     dfn = dict()
