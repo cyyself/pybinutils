@@ -18,8 +18,11 @@ apt install binutils-riscv64-linux-gnu binutils-aarch64-linux-gnu
 ### Draw cfg for a riscv64 binary
 
 argv[1]: path to the binary
+
 argv[2]: function name
+
 argv[3]: output cfg dot file
+
 argv[4]: output dom tree dot file
 
 ```bash
