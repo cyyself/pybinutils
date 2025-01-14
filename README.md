@@ -26,7 +26,7 @@ argv[3]: output cfg dot file
 argv[4]: output dom tree dot file
 
 ```bash
-./src/draw_cfg.py ~/spec_run/CPU2006LiteWrapper/456.hmmer/build/456.hmmerrv64gc P7Viterbi rv64gc.dot rv64gc_dom.dot
+./src/draw_cfg.py -e ~/spec_run/CPU2006LiteWrapper/456.hmmer/build/456.hmmerrv64gc -s P7Viterbi -c rv64gc.dot -d rv64gc_dom.dot
 ```
 
 The information on the cfg node is the dom tree path. Can be modified to dwarf position  or any other information.
