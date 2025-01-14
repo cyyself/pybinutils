@@ -2,6 +2,7 @@
 
 from analyze.dom_tree import build_dom_tree
 import graphviz
+import math
 
 class cfg_builder:
     def __build_dwarf(self, dwarf):
@@ -81,13 +82,30 @@ class cfg_builder:
                 if v == u:
                     break
 
-    def build_graphviz(self, filename):
+    def build_graphviz(self, filename, bb_count=None):
         dot = graphviz.Digraph(comment='Control Flow Graph')
+        cmapR = None
+        norm = None
+        if bb_count is not None:
+            import matplotlib.cm
+            from matplotlib.colors import Normalize
+            from matplotlib.colors import rgb2hex
+            cmapR = matplotlib.cm.get_cmap('RdYlGn')
+            vmin = min([bb_count[bb] for bb in bb_count])
+            vmax = max([bb_count[bb] for bb in bb_count])
+            norm = Normalize(vmin=vmin, vmax=vmax)
         for u in self.graph:
-            node_anno = str(hex(u))
+            dom_path_str = str(hex(u))
             if u in self.dom_path:
-                node_anno = "\n".join([str(hex(p)) for p in self.dom_path[u]])
-            dot.node(str(hex(u)), node_anno)
+                dom_path_str = "\n".join([str(hex(p)) for p in self.dom_path[u]])
+            node_color = "white"
+            if bb_count is not None:
+                if u in bb_count:
+                    # From green to red gradient
+                    node_color = rgb2hex(cmapR(norm(bb_count[u])))
+            bb_count_log_str = f"{math.log2(bb_count[u]):.1f}\n\n" if bb_count is not None and u in bb_count else ""
+            node_anno = bb_count_log_str + dom_path_str
+            dot.node(str(hex(u)), node_anno, style="filled", fillcolor=node_color)
             for v, edge_info in self.graph[u]:
                 edge_anno = str(edge_info) if edge_info else ""
                 dot.edge(str(hex(u)), str(hex(v)), edge_anno)
