@@ -18,6 +18,7 @@ class cfg_builder:
         self.graph = dict()
         self.dwarf_index = dict()
         self.__build_dwarf(dwarf)
+        self.bb_symbol = bb[symbol_name]['bb']
         all_bb = set(bb[symbol_name]['bb'].keys())
         for u in trans_edge:
             u_bb_addr = bb_size.query_bb_addr(bb_size.query_bb_id(u))
@@ -82,6 +83,23 @@ class cfg_builder:
                 if v == u:
                     break
 
+    def __query_node_dwarf(self, bb_addr):
+        res_buf = ""
+        visited = set()
+        if bb_addr in self.bb_symbol:
+            for each_pc in self.bb_symbol[bb_addr]:
+                if each_pc not in self.dwarf_index:
+                    continue
+                for each_dwarf in self.dwarf_index[each_pc]:
+                    if each_dwarf in visited:
+                        continue
+                    visited.add(each_dwarf)
+                    filename, line, col = each_dwarf
+                    with open(filename, 'r') as f:
+                        lines = f.readlines()
+                        res_buf += f"{line}:{col}: {lines[line-1].strip()}\\l"
+        return res_buf
+
     def build_graphviz(self, filename, bb_count=None):
         dot = graphviz.Digraph(comment='Control Flow Graph')
         cmapR = None
@@ -91,8 +109,8 @@ class cfg_builder:
             from matplotlib.colors import Normalize
             from matplotlib.colors import rgb2hex
             cmapR = matplotlib.cm.get_cmap('RdYlGn')
-            vmin = min([bb_count[bb] for bb in bb_count])
-            vmax = max([bb_count[bb] for bb in bb_count])
+            vmin = math.log(1 + min([bb_count[bb] for bb in bb_count]))
+            vmax = math.log(1 + max([bb_count[bb] for bb in bb_count]))
             norm = Normalize(vmin=vmin, vmax=vmax)
         for u in self.graph:
             dom_path_str = str(hex(u))
@@ -102,9 +120,12 @@ class cfg_builder:
             if bb_count is not None:
                 if u in bb_count:
                     # From green to red gradient
-                    node_color = rgb2hex(cmapR(norm(bb_count[u])))
+                    node_color = rgb2hex(cmapR(norm(1 + math.log(bb_count[u]))))
             bb_count_log_str = f"{math.log2(bb_count[u]):.1f}\n\n" if bb_count is not None and u in bb_count else ""
-            node_anno = bb_count_log_str + dom_path_str
+            node_dwarf = self.__query_node_dwarf(u)
+            if node_dwarf is None:
+                node_dwarf = ""
+            node_anno = bb_count_log_str + dom_path_str + "\n" + node_dwarf
             dot.node(str(hex(u)), node_anno, style="filled", fillcolor=node_color)
             for v, edge_info in self.graph[u]:
                 edge_anno = str(edge_info) if edge_info else ""
