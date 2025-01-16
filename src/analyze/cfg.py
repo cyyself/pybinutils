@@ -68,11 +68,11 @@ class cfg_builder:
                 if v not in in_degree:
                     in_degree[v] = 0
                 in_degree[v] += 1
+        self.__build_dom_tree()
         self.scc_belongs = dict()
         for u in in_degree:
             if in_degree[u] == 0:
                 self.__tarjan(u, dict(), dict(), [], dict(), dict())
-        self.__build_dom_tree()
 
     def __tarjan(self, u, dfn, lowlink, stack, onstack, lowdepth, depth=0):
         dfn[u] = len(dfn)
@@ -88,15 +88,19 @@ class cfg_builder:
                 elif onstack[v]:
                     lowlink[u] = min(lowlink[u], dfn[v])
         if lowlink[u] == dfn[u]:# u is the root of a scc
+            cur_nodes = []
             while True:
                 v = stack.pop()
                 onstack[v] = False
-                if v not in self.scc:
-                    self.scc[v] = []
-                self.scc[v].append(u)
-                self.scc_belongs[v] = u
+                cur_nodes.append(v)
                 if v == u:
                     break
+            scc_root = max(cur_nodes, key=lambda x: self.dom_tree_size[x])
+            for v in cur_nodes:
+                if v not in self.scc:
+                    self.scc[v] = []
+                self.scc[v].append(scc_root)
+                self.scc_belongs[v] = scc_root
 
     def __query_node_dwarf(self, bb_addr):
         res_buf = ""
