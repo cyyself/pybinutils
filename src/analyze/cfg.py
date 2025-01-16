@@ -60,18 +60,18 @@ class cfg_builder:
                         pass
                     self.graph[u_bb_addr].append((v, edge_info))
         self.scc_path = dict()
-        in_degree = dict()
+        self.in_degree = dict()
         for u in self.graph:
-            if u not in in_degree:
-                in_degree[u] = 0
-            for v in self.graph[u]:
-                if v not in in_degree:
-                    in_degree[v] = 0
-                in_degree[v] += 1
+            if u not in self.in_degree:
+                self.in_degree[u] = set()
+            for v, _ in self.graph[u]:
+                if v not in self.in_degree:
+                    self.in_degree[v] = set()
+                self.in_degree[v].add(u)
         self.__build_dom_tree()
         self.scc_belongs = dict()
-        for u in in_degree:
-            if in_degree[u] == 0:
+        for u in self.in_degree:
+            if len(self.in_degree[u]) == 0:
                 self.__tarjan(u, dict(), dict(), [], dict(), dict())
 
     def __tarjan(self, u, dfn, lowlink, stack, onstack, lowdepth, depth=0):
@@ -88,14 +88,24 @@ class cfg_builder:
                 elif onstack[v]:
                     lowlink[u] = min(lowlink[u], dfn[v])
         if lowlink[u] == dfn[u]:# u is the root of a scc
-            cur_nodes = []
+            cur_nodes = set()
             while True:
                 v = stack.pop()
                 onstack[v] = False
-                cur_nodes.append(v)
+                cur_nodes.add(v)
                 if v == u:
                     break
-            scc_root = max(cur_nodes, key=lambda x: self.dom_tree_size[x])
+            outer_in_degree = dict()
+            for v in cur_nodes:
+                if v in self.in_degree:
+                    for w in self.in_degree[v]:
+                        if w not in cur_nodes:
+                            if v not in outer_in_degree:
+                                outer_in_degree[v] = 0
+                            outer_in_degree[v] += 1
+            scc_root = u
+            if len(outer_in_degree) > 0:
+                scc_root = max(outer_in_degree, key=lambda x: self.dom_tree_size[x])
             for v in cur_nodes:
                 if v not in self.scc_path:
                     self.scc_path[v] = []
@@ -150,19 +160,10 @@ class cfg_builder:
             f.write(dot.source)
 
     def __build_dom_tree(self):
-        # Find all incoming edges
-        in_degree = dict()
-        for u in self.graph:
-            if u not in in_degree:
-                in_degree[u] = 0
-            for v, _ in self.graph[u]:
-                if v not in in_degree:
-                    in_degree[v] = 0
-                in_degree[v] += 1
         # Find entry node
         entry = None
-        for u in in_degree:
-            if in_degree[u] == 0:
+        for u in self.in_degree:
+            if len(self.in_degree[u]) == 0:
                 if entry is not None:
                     raise Exception("Multiple entry nodes")
                 entry = u
