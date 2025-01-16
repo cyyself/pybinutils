@@ -12,12 +12,25 @@ class cfg_builder:
                 if pc not in self.dwarf_index:
                     self.dwarf_index[pc] = []
                 self.dwarf_index[pc].append((filename, line, col))
+    
+    def __build_bb_count(self, bb_count):
+        self.cmapR = None
+        self.norm = None
+        self.bb_count = bb_count
+        if bb_count is not None:
+            import matplotlib.cm
+            from matplotlib.colors import Normalize
+            self.cmapR = matplotlib.cm.get_cmap('RdYlGn')
+            vmin = math.log2(1 + min([bb_count[bb] for bb in bb_count]))
+            vmax = math.log2(1 + max([bb_count[bb] for bb in bb_count]))
+            self.norm = Normalize(vmin=vmin, vmax=vmax)
 
-    def __init__(self, bb, bb_size, trans_edge, symbol_name, dwarf=None):
+    def __init__(self, bb, bb_size, trans_edge, symbol_name, dwarf=None, bb_count=None):
         self.symbol_name = symbol_name
         self.graph = dict()
         self.dwarf_index = dict()
         self.__build_dwarf(dwarf)
+        self.__build_bb_count(bb_count)
         self.bb_symbol = bb[symbol_name]['bb']
         all_bb = set(bb[symbol_name]['bb'].keys())
         for u in trans_edge:
@@ -101,33 +114,30 @@ class cfg_builder:
                         lines = f.readlines()
                         res_buf += f"{line}:{col}: {lines[line-1].strip()}\\l"
         return res_buf
+    
+    def __gen_node_color(self, u):
+        color = "white"
+        if self.bb_count:
+            if u in self.bb_count:
+                from matplotlib.colors import rgb2hex
+                color = rgb2hex(self.cmapR(self.norm(1 + math.log2(self.bb_count[u]))))
+        return color
+    
+    def __gen_node_anno(self, u):
+        dom_path_str = str(hex(u))
+        if u in self.dom_path:
+            dom_path_str = "\n".join([str(hex(p)) for p in self.dom_path[u]])
+        bb_count_log_str = f"{math.log2(self.bb_count[u]):.1f}\n\n" if u in self.bb_count else ""
+        node_dwarf = self.__query_node_dwarf(u)
+        if node_dwarf is None:
+            node_dwarf = ""
+        return bb_count_log_str + dom_path_str + "\n" + node_dwarf + f"\n{hex(self.scc_belongs[u])}"
 
-    def build_graphviz(self, filename, bb_count=None):
+    def build_graphviz(self, filename):
         dot = graphviz.Digraph(comment='Control Flow Graph')
-        cmapR = None
-        norm = None
-        if bb_count is not None:
-            import matplotlib.cm
-            from matplotlib.colors import Normalize
-            from matplotlib.colors import rgb2hex
-            cmapR = matplotlib.cm.get_cmap('RdYlGn')
-            vmin = math.log2(1 + min([bb_count[bb] for bb in bb_count]))
-            vmax = math.log2(1 + max([bb_count[bb] for bb in bb_count]))
-            norm = Normalize(vmin=vmin, vmax=vmax)
         for u in self.graph:
-            dom_path_str = str(hex(u))
-            if u in self.dom_path:
-                dom_path_str = "\n".join([str(hex(p)) for p in self.dom_path[u]])
-            node_color = "white"
-            if bb_count is not None:
-                if u in bb_count:
-                    # From green to red gradient
-                    node_color = rgb2hex(cmapR(norm(1 + math.log2(bb_count[u]))))
-            bb_count_log_str = f"{math.log2(bb_count[u]):.1f}\n\n" if bb_count is not None and u in bb_count else ""
-            node_dwarf = self.__query_node_dwarf(u)
-            if node_dwarf is None:
-                node_dwarf = ""
-            node_anno = bb_count_log_str + dom_path_str + "\n" + node_dwarf + f"\n{hex(self.scc_belongs[u])}"
+            node_anno = self.__gen_node_anno(u)
+            node_color = self.__gen_node_color(u)
             dot.node(str(hex(u)), node_anno, style="filled", fillcolor=node_color)
             for v, edge_info in self.graph[u]:
                 edge_anno = str(edge_info) if edge_info else ""
@@ -171,7 +181,9 @@ class cfg_builder:
     def build_domtree_graphviz(self, filename):
         dot = graphviz.Digraph(comment='Dominance Tree')
         for u in self.graph:
-            dot.node(str(hex(u)))
+            node_color = self.__gen_node_color(u)
+            node_anno = self.__gen_node_anno(u)
+            dot.node(str(hex(u)), node_anno, style="filled", fillcolor=node_color)
         def dfs_dom_tree(node: dict, u):
             for v in node:
                 dot.edge(str(hex(u)), str(hex(v)))

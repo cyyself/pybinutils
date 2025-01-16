@@ -51,13 +51,13 @@ if __name__ == "__main__":
     bb, trans_edge = elf.read_basic_blocks(textdump)
     dwarf = elf.read_dwarf()
     bb_size = basic_block_size(bb)
-    cfg = cfg_builder(bb, bb_size, trans_edge, args.symbol, dwarf)
+    bb_count = None
+    if perf_file is not None:
+        # Choose the first event
+        bb_count_event = perf_to_bb_count(perf_file, bb_size)
+        bb_count = bb_count_event[list(bb_count_event.keys())[0]]
+    cfg = cfg_builder(bb, bb_size, trans_edge, args.symbol, dwarf, bb_count)
     if args.cfg is not None:
-        bb_count = None
-        if perf_file is not None:
-            # Choose the first event
-            bb_count_event = perf_to_bb_count(perf_file, bb_size)
-            bb_count = bb_count_event[list(bb_count_event.keys())[0]]
-        cfg.build_graphviz(args.cfg, bb_count)
+        cfg.build_graphviz(args.cfg)
     if args.dom is not None:
         cfg.build_domtree_graphviz(args.dom)
