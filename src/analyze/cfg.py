@@ -59,7 +59,7 @@ class cfg_builder:
                         # May call outside of this function, skip it for now
                         pass
                     self.graph[u_bb_addr].append((v, edge_info))
-        self.scc = dict()
+        self.scc_path = dict()
         in_degree = dict()
         for u in self.graph:
             if u not in in_degree:
@@ -97,9 +97,9 @@ class cfg_builder:
                     break
             scc_root = max(cur_nodes, key=lambda x: self.dom_tree_size[x])
             for v in cur_nodes:
-                if v not in self.scc:
-                    self.scc[v] = []
-                self.scc[v].append(scc_root)
+                if v not in self.scc_path:
+                    self.scc_path[v] = []
+                self.scc_path[v].append(scc_root)
                 self.scc_belongs[v] = scc_root
 
     def __query_node_dwarf(self, bb_addr):
