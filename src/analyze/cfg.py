@@ -131,7 +131,7 @@ class cfg_builder:
         node_dwarf = self.__query_node_dwarf(u)
         if node_dwarf is None:
             node_dwarf = ""
-        return bb_count_log_str + dom_path_str + "\n" + node_dwarf + f"\n{hex(self.scc_belongs[u])}"
+        return bb_count_log_str + dom_path_str + "\n" + node_dwarf + f"\n{hex(self.scc_belongs[u])}" + f"\n{self.dom_tree_size[u]}"
 
     def build_graphviz(self, filename):
         dot = graphviz.Digraph(comment='Control Flow Graph')
@@ -172,10 +172,13 @@ class cfg_builder:
                 trimmed_graph[u].append(v)
         self.dom_tree = build_dom_tree(trimmed_graph, entry)
         self.dom_path = dict()
+        self.dom_tree_size = dict()
         def dfs_dom_tree(node: dict, u, path: list):
+            self.dom_tree_size[u] = 1
             self.dom_path[u] = path
             for v in node:
                 dfs_dom_tree(node[v], v, path + [v])
+                self.dom_tree_size[u] += self.dom_tree_size[v]
         dfs_dom_tree(self.dom_tree[entry], entry, [entry])
 
     def build_domtree_graphviz(self, filename):
