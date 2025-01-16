@@ -109,8 +109,8 @@ class cfg_builder:
             from matplotlib.colors import Normalize
             from matplotlib.colors import rgb2hex
             cmapR = matplotlib.cm.get_cmap('RdYlGn')
-            vmin = math.log(1 + min([bb_count[bb] for bb in bb_count]))
-            vmax = math.log(1 + max([bb_count[bb] for bb in bb_count]))
+            vmin = math.log2(1 + min([bb_count[bb] for bb in bb_count]))
+            vmax = math.log2(1 + max([bb_count[bb] for bb in bb_count]))
             norm = Normalize(vmin=vmin, vmax=vmax)
         for u in self.graph:
             dom_path_str = str(hex(u))
@@ -120,7 +120,7 @@ class cfg_builder:
             if bb_count is not None:
                 if u in bb_count:
                     # From green to red gradient
-                    node_color = rgb2hex(cmapR(norm(1 + math.log(bb_count[u]))))
+                    node_color = rgb2hex(cmapR(norm(1 + math.log2(bb_count[u]))))
             bb_count_log_str = f"{math.log2(bb_count[u]):.1f}\n\n" if bb_count is not None and u in bb_count else ""
             node_dwarf = self.__query_node_dwarf(u)
             if node_dwarf is None:
