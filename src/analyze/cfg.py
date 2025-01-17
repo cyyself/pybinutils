@@ -69,48 +69,63 @@ class cfg_builder:
                     self.in_degree[v] = set()
                 self.in_degree[v].add(u)
         self.__build_dom_tree()
-        self.scc_belongs = dict()
-        for u in self.in_degree:
-            if len(self.in_degree[u]) == 0:
-                self.__tarjan(u, dict(), dict(), [], dict(), dict())
+        self.__build_scc_tree(self.graph.keys(), None)
 
-    def __tarjan(self, u, dfn, lowlink, stack, onstack, lowdepth, depth=0):
-        dfn[u] = len(dfn)
-        lowlink[u] = dfn[u]
-        lowdepth[u] = depth
-        stack.append(u)
-        onstack[u] = True
-        if u in self.graph:
-            for v, _ in self.graph[u]:
-                if v not in dfn:
-                    self.__tarjan(v, dfn, lowlink, stack, onstack, lowdepth, depth+1)
-                    lowlink[u] = min(lowlink[u], lowlink[v])
-                elif onstack[v]:
-                    lowlink[u] = min(lowlink[u], dfn[v])
-        if lowlink[u] == dfn[u]:# u is the root of a scc
-            cur_nodes = set()
-            while True:
-                v = stack.pop()
-                onstack[v] = False
-                cur_nodes.add(v)
-                if v == u:
-                    break
-            outer_in_degree = dict()
-            for v in cur_nodes:
-                if v in self.in_degree:
-                    for w in self.in_degree[v]:
-                        if w not in cur_nodes:
-                            if v not in outer_in_degree:
-                                outer_in_degree[v] = 0
-                            outer_in_degree[v] += 1
-            scc_root = u
-            if len(outer_in_degree) > 0:
-                scc_root = max(outer_in_degree, key=lambda x: self.dom_tree_size[x])
-            for v in cur_nodes:
-                if v not in self.scc_path:
-                    self.scc_path[v] = []
-                self.scc_path[v].append(scc_root)
-                self.scc_belongs[v] = scc_root
+    def __build_scc_tree(self, cur_nodes, mask_root):
+        scc = dict()
+        def __tarjan(u, dfn, lowlink, stack, onstack, lowdepth, depth=0):
+            dfn[u] = len(dfn)
+            lowlink[u] = dfn[u]
+            lowdepth[u] = depth
+            stack.append(u)
+            onstack[u] = True
+            if u in self.graph:
+                for v, _ in self.graph[u]:
+                    if v not in cur_nodes:
+                        continue
+                    if v == mask_root:
+                        continue
+                    if v not in dfn:
+                        __tarjan(v, dfn, lowlink, stack, onstack, lowdepth, depth+1)
+                        lowlink[u] = min(lowlink[u], lowlink[v])
+                    elif onstack[v]:
+                        lowlink[u] = min(lowlink[u], dfn[v])
+            if lowlink[u] == dfn[u]:# u is the root of a scc
+                scc_nodes = set()
+                while True:
+                    v = stack.pop()
+                    onstack[v] = False
+                    scc_nodes.add(v)
+                    if v == u:
+                        break
+                outer_in_degree = dict()
+                for v in scc_nodes:
+                    if v in self.in_degree:
+                        for w in self.in_degree[v]:
+                            if w not in scc_nodes:
+                                if v not in outer_in_degree:
+                                    outer_in_degree[v] = 0
+                                outer_in_degree[v] += 1
+                scc_root = u
+                if len(outer_in_degree) > 0:
+                    scc_root = max(outer_in_degree, key=lambda x: self.dom_tree_size[x])
+                scc[scc_root] = scc_nodes
+                for v in scc_nodes:
+                    if v not in self.scc_path:
+                        self.scc_path[v] = []
+                    self.scc_path[v].append(scc_root)
+        # End of __tarjan function
+        for u in cur_nodes:
+            in_node_in_scc = set()
+            if u is not mask_root:
+                for v in self.in_degree[u]:
+                    if v in cur_nodes:
+                        in_node_in_scc.add(v)
+            if len(in_node_in_scc) == 0:
+                __tarjan(u, dict(), dict(), [], dict(), dict())
+        for u in scc:
+            if len(scc[u]) > 1:
+                self.__build_scc_tree(scc[u], u)
 
     def __query_node_dwarf(self, bb_addr):
         res_buf = ""
@@ -145,7 +160,7 @@ class cfg_builder:
         node_dwarf = self.__query_node_dwarf(u)
         if node_dwarf is None:
             node_dwarf = ""
-        return bb_count_log_str + dom_path_str + "\n" + node_dwarf + f"\n{hex(self.scc_belongs[u])}" + f"\n{self.dom_tree_size[u]}"
+        return bb_count_log_str + dom_path_str + "\n" + node_dwarf + f"\n{", ".join([hex(x) for x in self.scc_path[u]])}" + f"\n{self.dom_tree_size[u]}"
 
     def build_graphviz(self, filename):
         dot = graphviz.Digraph(comment='Control Flow Graph')
