@@ -8,10 +8,11 @@ class cfg_builder:
     def __build_dwarf(self, dwarf):
         for filename in dwarf:
             for entry in dwarf[filename]:
-                line, col, pc = entry[0], entry[1], entry[2]
+                pc = entry['pc']
                 if pc not in self.dwarf_index:
                     self.dwarf_index[pc] = []
-                self.dwarf_index[pc].append((filename, line, col))
+                entry['filename'] = filename
+                self.dwarf_index[pc].append(entry)
     
     def __build_bb_count(self, bb_count):
         self.cmapR = None
@@ -45,7 +46,8 @@ class cfg_builder:
                     # Find last instr that has dwarf in u bb
                     for instr in reversed(bb[symbol_name]['bb'][u_bb_addr]):
                         if instr in self.dwarf_index:
-                            edge_info = str(self.dwarf_index[instr][0][1:])
+                            dwarf_line, dwarf_col = self.dwarf_index[instr][0]['line'], self.dwarf_index[instr][0]['col']
+                            edge_info = str((dwarf_line, dwarf_col))
                             break
                     # Find first instr that has dwarf in v bb
                     if v_bb_addr in bb[symbol_name]['bb']:
@@ -53,7 +55,8 @@ class cfg_builder:
                             if instr in self.dwarf_index:
                                 if edge_info is None:
                                     edge_info = ""
-                                edge_info += "->" + str(self.dwarf_index[instr][0][1:])
+                                dwarf_line, dwarf_col = self.dwarf_index[instr][0]['line'], self.dwarf_index[instr][0]['col']
+                                edge_info += "->" + str((dwarf_line, dwarf_col))
                                 break
                     else:
                         # May call outside of this function, skip it for now
@@ -135,10 +138,11 @@ class cfg_builder:
                 if each_pc not in self.dwarf_index:
                     continue
                 for each_dwarf in self.dwarf_index[each_pc]:
-                    if each_dwarf in visited:
+                    filename, line, col = each_dwarf['filename'], each_dwarf['line'], each_dwarf['col']
+                    hash = (filename, line, col)
+                    if hash in visited:
                         continue
-                    visited.add(each_dwarf)
-                    filename, line, col = each_dwarf
+                    visited.add(hash)
                     with open(filename, 'r') as f:
                         lines = f.readlines()
                         res_buf += f"{line}:{col}: {lines[line-1].strip()}\\l"

@@ -39,7 +39,7 @@ class arch_tools:
         else:
             raise Exception('Unsupported ELF file')
 
-    # Return ({filename: [line, col, pc, is_stmt, basic_block, end_sequence, prologue_end]})
+    # Return ({filename: {line: line_num, col: col_num, pc: pc, is_stmt: is_stmt, basic_block: basic_block, end_sequence: end_sequence, prologue_end: prologue_end}})
     def read_dwarf(self):
         res = {}
         dwarfinfo = self.elf.get_dwarf_info()
@@ -63,7 +63,15 @@ class arch_tools:
                 prologue_end = True if lpe.state.prologue_end else False
                 if filename not in res:
                     res[filename] = []
-                res[filename].append([line_num, col_num, pc, is_stmt, basic_block, end_sequence, prologue_end])
+                res[filename].append({
+                    'line': line_num,
+                    'col': col_num,
+                    'pc': pc,
+                    'is_stmt': is_stmt,
+                    'basic_block': basic_block,
+                    'end_sequence': end_sequence,
+                    'prologue_end': prologue_end
+                })
         return res
 
     # Return {symbol_name: {addr: address, instr: {addr: (hex_code, instr)}}}
