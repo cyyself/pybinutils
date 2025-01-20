@@ -132,20 +132,20 @@ class cfg_builder:
 
     def __query_node_dwarf(self, bb_addr):
         res_buf = ""
-        visited = set()
         if bb_addr in self.bb_symbol:
             for each_pc in self.bb_symbol[bb_addr]:
                 if each_pc not in self.dwarf_index:
                     continue
                 for each_dwarf in self.dwarf_index[each_pc]:
                     filename, line, col = each_dwarf['filename'], each_dwarf['line'], each_dwarf['col']
-                    hash = (filename, line, col)
-                    if hash in visited:
-                        continue
-                    visited.add(hash)
+                    flags = []
+                    for key in each_dwarf:
+                        if key not in ['filename', 'line', 'col', 'pc']:
+                            if each_dwarf[key]:
+                                flags += [key]
                     with open(filename, 'r') as f:
                         lines = f.readlines()
-                        res_buf += f"{line}:{col}: {lines[line-1].strip()}\\l"
+                        res_buf += f"{line}:{col}:{" ".join(flags)}: {lines[line-1].strip()}\\l"
         return res_buf
     
     def __gen_node_color(self, u):
