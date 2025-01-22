@@ -145,7 +145,7 @@ class cfg_builder:
                                 flags += [key]
                     with open(filename, 'r') as f:
                         lines = f.readlines()
-                        res_buf += f"{line}:{col}:{" ".join(flags)}: {lines[line-1].strip()}\\l"
+                        res_buf += f"{hex(each_pc)}:{line}:{col}:{" ".join(flags)}: {lines[line-1].strip()}\\l"
         return res_buf
     
     def __gen_node_color(self, u):
