@@ -219,3 +219,25 @@ class cfg_builder:
         dfs_dom_tree(self.dom_tree[entry], entry)
         with open(f"{filename}", 'w') as f:
             f.write(dot.source)
+
+    def build_scctree_graphviz(self, filename):
+        dot = graphviz.Digraph(comment='SCC Tree')
+        scc_tree = dict() # scc_tree = {u: {v: {w: {} }}} means u -> v -> w
+        for u in self.scc_path:
+            cur_node = scc_tree
+            for each_node in self.scc_path[u]:
+                if each_node not in cur_node:
+                    cur_node[each_node] = dict()
+                cur_node = cur_node[each_node]
+        print(scc_tree)
+        def dfs_scc_tree(node: dict, path: list):
+            for v in node:
+                v_path = path + [v]
+                node_color = self.__gen_node_color(v)
+                node_anno = self.__gen_node_anno(v)
+                dot.node("-".join(list(map(str, v_path))), node_anno, style="filled", fillcolor=node_color)
+                dot.edge("-".join(list(map(str, path))), "-".join(list(map(str, v_path))))
+                dfs_scc_tree(node[v], v_path)
+        dfs_scc_tree(scc_tree, [])
+        with open(f"{filename}", 'w') as f:
+            f.write(dot.source)

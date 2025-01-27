@@ -27,6 +27,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--symbol', type=str, help='Symbol name')
     parser.add_argument('-c', '--cfg', type=str, help='CFG output dot file')
     parser.add_argument('-d', '--dom', type=str, help='Dominator Tree output dot file')
+    parser.add_argument('-t', '--scctree', type=str, help='SCC Tree output dot file')
     args = parser.parse_args()
     if args.elf is None and args.symbol is None:
         parser.print_help()
@@ -61,3 +62,5 @@ if __name__ == "__main__":
         cfg.build_graphviz(args.cfg)
     if args.dom is not None:
         cfg.build_domtree_graphviz(args.dom)
+    if args.scctree is not None:
+        cfg.build_scctree_graphviz(args.scctree)
