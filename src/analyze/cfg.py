@@ -71,7 +71,7 @@ class cfg_builder:
                 if v not in self.in_degree:
                     self.in_degree[v] = set()
                 self.in_degree[v].add(u)
-        self.__build_dom_tree()
+        self.__build_dom_tree(bb, bb_size, symbol_name)
         self.__build_scc_tree(self.graph.keys(), None)
 
     def __build_scc_tree(self, cur_nodes, mask_root):
@@ -178,7 +178,7 @@ class cfg_builder:
         with open(f"{filename}", 'w') as f:
             f.write(dot.source)
 
-    def __build_dom_tree(self):
+    def __build_dom_tree(self, bb, bb_size, symbol_name):
         # Find entry node
         entry = None
         for u in self.in_degree:
@@ -198,7 +198,8 @@ class cfg_builder:
         self.dom_path = dict()
         self.dom_tree_size = dict()
         def dfs_dom_tree(node: dict, u, path: list):
-            self.dom_tree_size[u] = 1
+            bb_addr = bb_size.query_bb_addr(bb_size.query_bb_id(u))
+            self.dom_tree_size[u] = len(bb[symbol_name]['bb'][bb_addr]) if bb_addr in bb[symbol_name]['bb'] else 1
             self.dom_path[u] = path
             for v in node:
                 dfs_dom_tree(node[v], v, path + [v])
