@@ -230,7 +230,6 @@ class cfg_builder:
                 if each_node not in cur_node:
                     cur_node[each_node] = dict()
                 cur_node = cur_node[each_node]
-        print(scc_tree)
         def dfs_scc_tree(node: dict, path: list):
             for v in node:
                 v_path = path + [v]
