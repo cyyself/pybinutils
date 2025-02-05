@@ -39,6 +39,8 @@ class aarch64_tools(arch_tools):
     def is_control_flow_instr(self, instr):
         # instr should be (hex_code, instr) from read_textdump
         instr = instr[1].split("\t")[0].strip()
+        if '.' in instr:
+            instr = instr.split('.')[0]
         return instr in [
             'b', 'bl', 'br', 'blr', 'ret', # v8-branch
             'cbz', 'cbnz', # v8-compbranch
@@ -49,4 +51,6 @@ class aarch64_tools(arch_tools):
 
     def is_control_flow_end(self, instr):
         instr = instr[1].split("\t")[0].strip()
+        if '.' in instr:
+            instr = instr
         return instr in ['ret', 'retaa', 'retab']
