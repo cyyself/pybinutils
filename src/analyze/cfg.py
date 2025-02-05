@@ -5,6 +5,8 @@ import graphviz
 import math
 import sys
 
+skip_file = set()
+
 class cfg_builder:
     def __build_dwarf(self, dwarf):
         for filename in dwarf:
@@ -152,9 +154,15 @@ class cfg_builder:
                         if key not in ['filename', 'line', 'col', 'pc']:
                             if each_dwarf[key]:
                                 flags += [key]
-                    with open(filename, 'r') as f:
-                        lines = f.readlines()
-                        res_buf += f"{hex(each_pc)}:{line}:{col}:{" ".join(flags)}: {lines[line-1].strip()}\\l"
+                    try:
+                        with open(filename, 'r') as f:
+                            lines = f.readlines()
+                            res_buf += f"{hex(each_pc)}:{line}:{col}:{" ".join(flags)}: {lines[line-1].strip()}\\l"
+                    except:
+                        if filename not in skip_file:
+                            print(f"Failed to open {filename}", file=sys.stderr)
+                        skip_file.add(filename)
+                        pass
         return res_buf
     
     def __gen_node_color(self, u):
