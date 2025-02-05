@@ -79,7 +79,12 @@ class cfg_builder:
 
     def __build_scc_tree(self, cur_nodes, mask_root):
         scc = dict()
-        def __tarjan(u, dfn, lowlink, stack, onstack, lowdepth, depth=0):
+        dfn = dict()
+        lowlink = dict()
+        stack = []
+        onstack = dict()
+        lowdepth = dict()
+        def __tarjan(u, depth=0):
             dfn[u] = len(dfn)
             lowlink[u] = dfn[u]
             lowdepth[u] = depth
@@ -92,7 +97,7 @@ class cfg_builder:
                     if v == mask_root:
                         continue
                     if v not in dfn:
-                        __tarjan(v, dfn, lowlink, stack, onstack, lowdepth, depth+1)
+                        __tarjan(v, depth+1)
                         lowlink[u] = min(lowlink[u], lowlink[v])
                     elif onstack[v]:
                         lowlink[u] = min(lowlink[u], dfn[v])
@@ -128,7 +133,8 @@ class cfg_builder:
                     if v in cur_nodes:
                         in_node_in_scc.add(v)
             if len(in_node_in_scc) == 0:
-                __tarjan(u, dict(), dict(), [], dict(), dict())
+                if u not in dfn:
+                    __tarjan(u)
         for u in scc:
             if len(scc[u]) > 1:
                 self.__build_scc_tree(scc[u], u)
