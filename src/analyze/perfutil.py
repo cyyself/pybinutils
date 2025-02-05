@@ -27,6 +27,4 @@ def extract_perf_from_file(file):
                 if pc not in res[file][event]:
                     res[file][event][pc] = 0
                 res[file][event][pc] += freq
-            for event in res:
-                res[event] = dict(sorted(res[event].items(), key=lambda x: x[1], reverse=True))
             return res
