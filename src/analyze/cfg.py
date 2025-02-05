@@ -3,6 +3,7 @@
 from analyze.dom_tree import build_dom_tree
 import graphviz
 import math
+import sys
 
 class cfg_builder:
     def __build_dwarf(self, dwarf):
@@ -71,6 +72,8 @@ class cfg_builder:
                 if v not in self.in_degree:
                     self.in_degree[v] = set()
                 self.in_degree[v].add(u)
+        self.dom_path = dict()
+        self.dom_tree_size = dict()
         self.__build_dom_tree(bb, bb_size, symbol_name)
         self.__build_scc_tree(self.graph.keys(), None)
 
@@ -164,7 +167,7 @@ class cfg_builder:
         node_dwarf = self.__query_node_dwarf(u)
         if node_dwarf is None:
             node_dwarf = ""
-        return bb_count_log_str + dom_path_str + "\n" + node_dwarf + f"\n{", ".join([hex(x) for x in self.scc_path[u]])}" + f"\n{self.dom_tree_size[u]}"
+        return bb_count_log_str + dom_path_str + "\n" + node_dwarf + f"\n{", ".join([hex(x) for x in self.scc_path[u]]) if u in self.scc_path else ""}" + f"\n{self.dom_tree_size[u] if u in self.dom_tree_size else None}"
 
     def build_graphviz(self, filename):
         dot = graphviz.Digraph(comment='Control Flow Graph')
@@ -180,13 +183,13 @@ class cfg_builder:
 
     def __build_dom_tree(self, bb, bb_size, symbol_name):
         # Find entry node
-        entry = None
-        for u in self.in_degree:
+        entry = []
+        for u in sorted(self.in_degree):
             if len(self.in_degree[u]) == 0:
-                if entry is not None:
-                    raise Exception("Multiple entry nodes")
-                entry = u
-        if entry is None:
+                entry.append(u)
+                if len(entry) > 1:
+                    print(f"Multiple entry nodes: {", ".join([hex(x) for x in entry])}", file=sys.stderr)
+        if len(entry) == 0:
             raise Exception("No entry node")
         # trim self.graph with edge info
         trimmed_graph = dict()
@@ -194,9 +197,12 @@ class cfg_builder:
             trimmed_graph[u] = []
             for v, _ in self.graph[u]:
                 trimmed_graph[u].append(v)
+        if len(entry) > 1:
+            for u in entry:
+                if u != entry[0]:
+                    trimmed_graph[entry[0]].append(u)
+        entry = entry[0] # use the first entry node
         self.dom_tree = build_dom_tree(trimmed_graph, entry)
-        self.dom_path = dict()
-        self.dom_tree_size = dict()
         def dfs_dom_tree(node: dict, u, path: list):
             bb_addr = bb_size.query_bb_addr(bb_size.query_bb_id(u))
             self.dom_tree_size[u] = len(bb[symbol_name]['bb'][bb_addr]) if bb_addr in bb[symbol_name]['bb'] else 1
