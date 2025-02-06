@@ -76,6 +76,7 @@ class cfg_builder:
                 self.in_degree[v].add(u)
         self.dom_path = dict()
         self.dom_tree_size = dict()
+        self.bb_size = dict()
         self.__build_dom_tree(bb, bb_size, symbol_name)
         self.__build_scc_tree(self.graph.keys(), None)
 
@@ -159,6 +160,7 @@ class cfg_builder:
                             lines = f.readlines()
                             res_buf += f"{hex(each_pc)}:{line}:{col}:{" ".join(flags)}: {lines[line-1].strip()}\\l"
                     except:
+                        res_buf += f"{hex(each_pc)}:{line}:{col}:{" ".join(flags)}\\l"
                         if filename not in skip_file:
                             print(f"Failed to open {filename}", file=sys.stderr)
                         skip_file.add(filename)
@@ -181,7 +183,12 @@ class cfg_builder:
         node_dwarf = self.__query_node_dwarf(u)
         if node_dwarf is None:
             node_dwarf = ""
-        return bb_count_log_str + dom_path_str + "\n" + node_dwarf + f"\n{", ".join([hex(x) for x in self.scc_path[u]]) if u in self.scc_path else ""}" + f"\n{self.dom_tree_size[u] if u in self.dom_tree_size else None}"
+        return bb_count_log_str + \
+               dom_path_str + "\n" + \
+               node_dwarf + \
+               f"\n{", ".join([hex(x) for x in self.scc_path[u]]) if u in self.scc_path else ""}" + \
+               f"\n{self.bb_size[u] if u in self.bb_size else None}" + \
+               f"\n{self.dom_tree_size[u] if u in self.dom_tree_size else None}"
 
     def build_graphviz(self, filename):
         dot = graphviz.Digraph(comment='Control Flow Graph')
@@ -219,7 +226,8 @@ class cfg_builder:
         self.dom_tree = build_dom_tree(trimmed_graph, entry)
         def dfs_dom_tree(node: dict, u, path: list):
             bb_addr = bb_size.query_bb_addr(bb_size.query_bb_id(u))
-            self.dom_tree_size[u] = len(bb[symbol_name]['bb'][bb_addr]) if bb_addr in bb[symbol_name]['bb'] else 1
+            self.bb_size[u] = len(bb[symbol_name]['bb'][bb_addr]) if bb_addr in bb[symbol_name]['bb'] else 1
+            self.dom_tree_size[u] = self.bb_size[u]
             self.dom_path[u] = path
             for v in node:
                 dfs_dom_tree(node[v], v, path + [v])
