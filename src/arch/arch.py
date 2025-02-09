@@ -74,7 +74,7 @@ class arch_tools:
                 })
         return res
 
-    # Return {symbol_name: {addr: address, instr: {addr: (hex_code, instr)}}}
+    # Return {symbol_name: {'addr': address, 'instr': {addr: (hex_code, instr)}}}
     def read_textdump(self, objdump_opts=''):
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             if os.system(f'{self.objdump} {objdump_opts} -d {self.elf_path} > {tmp.name}') != 0:
