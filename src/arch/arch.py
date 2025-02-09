@@ -119,7 +119,7 @@ class arch_tools:
     def is_control_flow_end(self, instr):
         assert False, "Not implemented"
 
-    # Return ({symbol_name: {addr: address, bb: {bbstart: {addr: address, instr: {addr: (hex_code, instr)}}}}}, {trans_dst: [trans_src]})
+    # Return ({  symbol_name: { addr: address, bb: {bbstart: {addr: (hex_code, instr)}, ... }, ... }  }, {trans_dst: [trans_src]})
     def read_basic_blocks(self, textdump):
         # Split basic blocks based on textdump
         trans_in = set()
