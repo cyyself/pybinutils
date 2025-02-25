@@ -7,7 +7,7 @@ import os
 # return: {file: {event: {pc: count}}}
 def extract_perf_from_file(file):
     with tempfile.NamedTemporaryFile() as tmp:
-        os.system("perf script -i {} --full-source-path > {}".format(file, tmp.name))
+        os.system("perf script -i {} --no-demangle --full-source-path > {}".format(file, tmp.name))
         with open(tmp.name, 'r') as f:
             lines = f.readlines()
             res = dict()
