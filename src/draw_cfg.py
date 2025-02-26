@@ -60,7 +60,8 @@ if __name__ == "__main__":
     else:
         elf = arch_tools.open_elf(args.elf)
     textdump = elf.read_textdump()
-    perf_file = perf_extract_deaslr_per_file(perf_file, aslr_map[cur_elf_path], textdump)
+    if perf_file:
+        perf_file = perf_extract_deaslr_per_file(perf_file, aslr_map[cur_elf_path], textdump)
     bb, trans_edge = elf.read_basic_blocks(textdump)
     dwarf = elf.read_dwarf()
     bb_size = basic_block_size(bb)

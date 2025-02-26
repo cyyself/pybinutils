@@ -179,7 +179,7 @@ class cfg_builder:
         dom_path_str = str(hex(u))
         if u in self.dom_path:
             dom_path_str = "\n".join([str(hex(p)) for p in self.dom_path[u]])
-        bb_count_log_str = f"{math.log2(self.bb_count[u]):.1f}\n\n" if u in self.bb_count else ""
+        bb_count_log_str = f"{math.log2(self.bb_count[u]):.1f}\n\n" if self.bb_count and u in self.bb_count else ""
         node_dwarf = self.__query_node_dwarf(u)
         if node_dwarf is None:
             node_dwarf = ""
