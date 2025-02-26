@@ -60,7 +60,6 @@ if __name__ == "__main__":
     bb_size = basic_block_size(bb)
     bb_count = None
     if perf_file is not None:
-        # Choose the first event
         bb_count_event = perf_to_bb_count(perf_file, bb_size)
         if args.metric is None:
             if len(bb_count_event) > 1:
