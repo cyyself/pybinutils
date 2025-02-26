@@ -8,7 +8,7 @@ from collections import OrderedDict
 import sys
 from elftools.elf.elffile import ELFFile
 
-def lpe_filename(line_program, file_index):
+def lpe_filename(line_program, file_index, comp_dir):
     lp_header = line_program.header
     file_entries = lp_header["file_entry"]
     if lp_header.version < 5:
@@ -22,6 +22,8 @@ def lpe_filename(line_program, file_index):
     if lp_header.version < 5:
         dir_index -= 1
     directory = lp_header["include_directory"][dir_index]
+    if directory[0] != b'/' or directory[0] == b'.':
+        directory = posixpath.join(comp_dir, directory)
     return posixpath.join(directory, file_entry.name).decode()
 
 skip_target = set()
@@ -44,6 +46,10 @@ class arch_tools:
         res = {}
         dwarfinfo = self.elf.get_dwarf_info()
         for CU in dwarfinfo.iter_CUs():
+            top_DIE = CU.get_top_DIE()
+            comp_dir = None
+            if 'DW_AT_comp_dir' in top_DIE.attributes:
+                comp_dir = top_DIE.attributes['DW_AT_comp_dir'].value
             line_program = dwarfinfo.line_program_for_CU(CU)
             if line_program is None:
                 continue
@@ -51,7 +57,7 @@ class arch_tools:
             for lpe in lp_entries:
                 if not lpe.state:
                     continue
-                filename = lpe_filename(line_program, lpe.state.file)
+                filename = lpe_filename(line_program, lpe.state.file, comp_dir)
                 if filename is None:
                     continue
                 line_num = lpe.state.line
