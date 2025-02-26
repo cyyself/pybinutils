@@ -5,7 +5,7 @@ import sys
 from arch.arch import arch_tools
 from analyze.bb_utils import basic_block_size
 from analyze.cfg import cfg_builder
-from analyze.perfutil import extract_perf_from_file
+from analyze.perfutil import extract_perf_from_file, perf_extract_deaslr_per_file
 
 def perf_to_bb_count(perf_extract, bb_size: basic_block_size):
     # Count how many time a basic block is executed
@@ -37,8 +37,12 @@ if __name__ == "__main__":
         exit(1)
     elf = None
     perf_file = None
+    cur_elf_path = args.elf
+    aslr_map = dict()
+    if cur_elf_path:
+        aslr_map[cur_elf_path] = dict() # dummy
     if args.perf is not None:
-        perf_extract = extract_perf_from_file(args.perf)
+        perf_extract = extract_perf_from_file(args.perf, aslr_map)
         for file in perf_extract:
             if file == '[kernel.kallsyms]' or file == '[vdso]' or file == '[unknown]':
                 continue
@@ -46,6 +50,7 @@ if __name__ == "__main__":
                 curelf = arch_tools.open_elf(file)
                 if args.symbol in curelf.read_textdump():
                     elf = curelf
+                    cur_elf_path = file
                     perf_file = perf_extract[file]
             except:
                 print(f"Warning: Unable to process {file}", file=sys.stderr)
@@ -55,6 +60,7 @@ if __name__ == "__main__":
     else:
         elf = arch_tools.open_elf(args.elf)
     textdump = elf.read_textdump()
+    perf_file = perf_extract_deaslr_per_file(perf_file, aslr_map[cur_elf_path], textdump)
     bb, trans_edge = elf.read_basic_blocks(textdump)
     dwarf = elf.read_dwarf()
     bb_size = basic_block_size(bb)
