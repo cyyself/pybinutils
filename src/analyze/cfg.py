@@ -36,6 +36,7 @@ class cfg_builder:
         self.__build_dwarf(dwarf)
         self.__build_bb_count(bb_count)
         self.bb_symbol = bb[symbol_name]['bb']
+        self.insn_class = bb[symbol_name]['insn_class']
         all_bb = set(bb[symbol_name]['bb'].keys())
         for u in trans_edge:
             u_bb_addr = bb_size.query_bb_addr(bb_size.query_bb_id(u))
@@ -188,6 +189,7 @@ class cfg_builder:
                node_dwarf + \
                f"\n{", ".join([hex(x) for x in self.scc_path[u]]) if u in self.scc_path else ""}" + \
                f"\n{self.bb_size[u] if u in self.bb_size else None}" + \
+               f"\n{self.insn_class[u] if u in self.insn_class else None}" + \
                f"\n{self.dom_tree_size[u] if u in self.dom_tree_size else None}"
 
     def build_graphviz(self, filename):

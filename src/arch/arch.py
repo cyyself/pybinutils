@@ -7,6 +7,17 @@ import re
 from collections import OrderedDict
 import sys
 from elftools.elf.elffile import ELFFile
+import pathlib
+
+def insn_db_path():
+    cur_dir = pathlib.Path(os.path.realpath(__file__))
+    insn_db_path = cur_dir.parent.parent.parent / 'ext' / 'insn-db' / 'out'
+    if 'INSN_DB' in os.environ:
+        return pathlib.Path(os.environ['INSN_DB'])
+    elif insn_db_path.exists():
+        return insn_db_path
+    else:
+        return None
 
 def lpe_filename(line_program, file_index, comp_dir):
     lp_header = line_program.header
@@ -186,6 +197,7 @@ class arch_tools:
         for sym in textdump:
             instrs = textdump[sym]['instr']
             bb = OrderedDict()
+            insn_class = dict() # {bb_addr: {insn_class: count, ... }, ...}
             cur_bb = None
             cur_instr = OrderedDict()
             addr_list = list(sorted(instrs.keys()))
@@ -207,6 +219,14 @@ class arch_tools:
                     cur_instr = OrderedDict()
                     cur_bb = addr
                 cur_instr[addr] = instrs[addr]
+                instr_class = self.get_insn_class_by_instr(cur_instr[addr])
+                if instr_class:
+                    if cur_bb not in insn_class:
+                        insn_class[cur_bb] = dict()
+                    for each_class in instr_class:
+                        if each_class not in insn_class[cur_bb]:
+                            insn_class[cur_bb][each_class] = 0
+                        insn_class[cur_bb][each_class] += 1
                 if addr in trans_out:
                     if len(cur_instr) > 0:
                         bb[cur_bb] = cur_instr
@@ -214,5 +234,9 @@ class arch_tools:
                     cur_bb = None
             if len(cur_instr) > 0:
                 bb[cur_bb] = cur_instr
-            res[sym] = {'addr': textdump[sym]['addr'], 'bb': bb}
+            res[sym] = {'addr': textdump[sym]['addr'], 'bb': bb, 'insn_class': insn_class}
         return (res, trans_edge)
+
+    def get_insn_class_by_instr(self, instr):
+        # Optional feature, return None if not implemented
+        return None

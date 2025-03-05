@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
-from arch.arch import arch_tools
+from arch.arch import arch_tools, insn_db_path
 from elftools.elf.elffile import ELFFile
 import tempfile
 import os
+import json
+import sys
 
 class riscv64_tools(arch_tools):
-    def __init__(self, elf_path, ldflags='-no-pie', ld='riscv64-linux-gnu-ld', objdump='riscv64-linux-gnu-objdump'):
+    def __init__(self, elf_path, ldflags='-no-pie', ld='riscv64-linux-gnu-ld', objdump='riscv64-linux-gnu-objdump', insn_db=insn_db_path()):
         self.elf_path = elf_path
         self.objdump = objdump
         self.openfiles = []
@@ -23,6 +25,13 @@ class riscv64_tools(arch_tools):
             f = open(tf.name, 'rb')
             self.elf = ELFFile(f)
         self.openfiles.append(f)
+        self.insn_db_riscv64 = None
+        if insn_db:
+            try:
+                with open(insn_db / "riscv64-class.json", 'r') as f:
+                    self.insn_db_riscv64 = json.load(f)
+            except:
+                print("Error: Cannot open riscv64-class.json", file=sys.stderr)
 
     def __del__(self):
         for f in self.openfiles:
@@ -47,3 +56,10 @@ class riscv64_tools(arch_tools):
     def is_control_flow_end(self, instr):
         instr = instr[1].split("\t")[0].strip()
         return instr in ['jalr'] and 'ra' in instr
+
+    def get_insn_class_by_instr(self, instr):
+        instr = instr[1].split("\t")[0].strip()
+        if self.insn_db_riscv64:
+            if instr in self.insn_db_riscv64:
+                return self.insn_db_riscv64[instr]
+        return None

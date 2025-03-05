@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
-from arch.arch import arch_tools
+from arch.arch import arch_tools, insn_db_path
 from elftools.elf.elffile import ELFFile
 import tempfile
 import os
+import json
+import sys
 
 class aarch64_tools(arch_tools):
-    def __init__(self, elf_path, ldflags='-no-pie', ld='aarch64-linux-gnu-ld', objdump='aarch64-linux-gnu-objdump'):
+    def __init__(self, elf_path, ldflags='-no-pie', ld='aarch64-linux-gnu-ld', objdump='aarch64-linux-gnu-objdump', insn_db=insn_db_path()):
         self.elf_path = elf_path
         self.objdump = objdump
         self.openfiles = []
@@ -23,6 +25,13 @@ class aarch64_tools(arch_tools):
             f = open(tf.name, 'rb')
             self.elf = ELFFile(f)
         self.openfiles.append(f)
+        self.insn_db_aarch64 = None
+        if insn_db:
+            try:
+                with open(insn_db / "aarch64-class.json", 'r') as f:
+                    self.insn_db_aarch64 = json.load(f)
+            except:
+                print("Error: Cannot open aarch64-class.json", file=sys.stderr)
 
     def __del__(self):
         for f in self.openfiles:
@@ -54,3 +63,15 @@ class aarch64_tools(arch_tools):
         if '.' in instr:
             instr = instr.split('.')[0]
         return instr in ['ret', 'retaa', 'retab']
+
+    def get_insn_class_by_instr(self, instr):
+        instr_str = instr[1].split("\t")[0].strip()
+        x = instr[0]
+        if self.insn_db_aarch64:
+            if instr_str in self.insn_db_aarch64:
+                # TODO: index using k-d tree
+                for k, v in self.insn_db_aarch64[instr_str].items():
+                    op, mask = k.split(",")
+                    if (x & int(mask, 16)) == int(op, 16):
+                        return v
+        return None
