@@ -7,7 +7,7 @@ import sys
 
 skip_file = set()
 
-class cfg_builder:
+class CFG:
     def __build_dwarf(self, dwarf):
         for filename in dwarf:
             for entry in dwarf[filename]:

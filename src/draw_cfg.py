@@ -4,7 +4,7 @@ import argparse
 import sys
 from arch.arch import arch_tools
 from analyze.bb_utils import basic_block_size
-from analyze.cfg import cfg_builder
+from analyze.cfg import CFG
 from analyze.perfutil import extract_perf_from_file, perf_extract_deaslr_per_file
 
 def perf_to_bb_count(perf_extract, bb_size: basic_block_size):
@@ -86,7 +86,7 @@ if __name__ == "__main__":
                 exit(1)
             else:
                 bb_count = bb_count_event[args.metric]
-    cfg = cfg_builder(bb, bb_size, trans_edge, args.symbol, dwarf, bb_count)
+    cfg = CFG(bb, bb_size, trans_edge, args.symbol, dwarf, bb_count)
     if args.cfg is not None:
         cfg.build_graphviz(args.cfg)
     if args.dom is not None:
