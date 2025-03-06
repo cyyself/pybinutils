@@ -9,6 +9,7 @@ skip_file = set()
 
 class CFG:
     def __build_dwarf(self, dwarf):
+        self.dwarf_index = dict()
         for filename in dwarf:
             for entry in dwarf[filename]:
                 pc = entry['pc']
@@ -29,15 +30,9 @@ class CFG:
             vmax = math.log2(1 + max([bb_count[bb] for bb in bb_count]))
             self.norm = Normalize(vmin=vmin, vmax=vmax)
 
-    def __init__(self, bb, bb_size, trans_edge, symbol_name, dwarf=None, bb_count=None):
-        self.symbol_name = symbol_name
+    def __build_graph(self, trans_edge, bb, bb_size, all_bb, symbol_name):
         self.graph = dict()
-        self.dwarf_index = dict()
-        self.__build_dwarf(dwarf)
-        self.__build_bb_count(bb_count)
-        self.bb_symbol = bb[symbol_name]['bb']
-        self.insn_class = bb[symbol_name]['insn_class']
-        all_bb = set(bb[symbol_name]['bb'].keys())
+        self.in_degree = dict()
         for u in trans_edge:
             u_bb_addr = bb_size.query_bb_addr(bb_size.query_bb_id(u))
             if u_bb_addr in all_bb:
@@ -66,8 +61,6 @@ class CFG:
                         # May call outside of this function, skip it for now
                         pass
                     self.graph[u_bb_addr].append((v, edge_info))
-        self.scc_path = dict()
-        self.in_degree = dict()
         for u in self.graph:
             if u not in self.in_degree:
                 self.in_degree[u] = set()
@@ -75,10 +68,17 @@ class CFG:
                 if v not in self.in_degree:
                     self.in_degree[v] = set()
                 self.in_degree[v].add(u)
-        self.dom_path = dict()
-        self.dom_tree_size = dict()
-        self.bb_size = dict()
+
+    def __init__(self, bb, bb_size, trans_edge, symbol_name, dwarf=None, bb_count=None):
+        self.symbol_name = symbol_name
+        self.__build_dwarf(dwarf)
+        self.__build_bb_count(bb_count)
+        self.bb_symbol = bb[symbol_name]['bb']
+        self.insn_class = bb[symbol_name]['insn_class']
+        all_bb = set(bb[symbol_name]['bb'].keys())
+        self.__build_graph(trans_edge, bb, bb_size, all_bb, symbol_name)
         self.__build_dom_tree(bb, bb_size, symbol_name)
+        self.scc_path = dict() # it must be here since __build_scc_tree will recursively call itself
         self.__build_scc_tree(self.graph.keys(), None)
 
     def __build_scc_tree(self, cur_nodes, mask_root):
@@ -188,7 +188,7 @@ class CFG:
                dom_path_str + "\n" + \
                node_dwarf + \
                f"\n{", ".join([hex(x) for x in self.scc_path[u]]) if u in self.scc_path else ""}" + \
-               f"\n{self.bb_size[u] if u in self.bb_size else None}" + \
+               f"\n{self.dom_bb_size[u] if u in self.dom_bb_size else None}" + \
                f"\n{self.insn_class[u] if u in self.insn_class else None}" + \
                f"\n{self.dom_tree_size[u] if u in self.dom_tree_size else None}"
 
@@ -205,6 +205,9 @@ class CFG:
             f.write(dot.source)
 
     def __build_dom_tree(self, bb, bb_size, symbol_name):
+        self.dom_bb_size = dict()
+        self.dom_path = dict()
+        self.dom_tree_size = dict()
         # Find entry node
         entry = []
         for u in sorted(self.in_degree):
@@ -228,8 +231,8 @@ class CFG:
         self.dom_tree = build_dom_tree(trimmed_graph, entry)
         def dfs_dom_tree(node: dict, u, path: list):
             bb_addr = bb_size.query_bb_addr(bb_size.query_bb_id(u))
-            self.bb_size[u] = len(bb[symbol_name]['bb'][bb_addr]) if bb_addr in bb[symbol_name]['bb'] else 1
-            self.dom_tree_size[u] = self.bb_size[u]
+            self.dom_bb_size[u] = len(bb[symbol_name]['bb'][bb_addr]) if bb_addr in bb[symbol_name]['bb'] else 1
+            self.dom_tree_size[u] = self.dom_bb_size[u]
             self.dom_path[u] = path
             for v in node:
                 dfs_dom_tree(node[v], v, path + [v])
