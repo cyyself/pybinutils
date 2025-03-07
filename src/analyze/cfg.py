@@ -78,10 +78,20 @@ class CFG:
         all_bb = set(bb[symbol_name]['bb'].keys())
         self.__build_graph(trans_edge, bb, bb_size, all_bb, symbol_name)
         self.__build_dom_tree(bb, bb_size, symbol_name)
-        self.scc_path = dict() # it must be here since __build_scc_tree will recursively call itself
-        self.__build_scc_tree(self.graph.keys(), None)
+        self.__build_scc_tree()
 
-    def __build_scc_tree(self, cur_nodes, mask_root):
+    def __build_scc_tree(self):
+        self.scc_path = dict()
+        self.scc_tree = dict()
+        self.__build_scc_tree_dfs(self.graph.keys(), None)
+        for u in self.scc_path:
+            cur_node = self.scc_tree
+            for each_node in self.scc_path[u]:
+                if each_node not in cur_node:
+                    cur_node[each_node] = dict()
+                cur_node = cur_node[each_node]
+
+    def __build_scc_tree_dfs(self, cur_nodes, mask_root):
         scc = dict()
         dfn = dict()
         lowlink = dict()
@@ -141,7 +151,7 @@ class CFG:
                     __tarjan(u)
         for u in scc:
             if len(scc[u]) > 1:
-                self.__build_scc_tree(scc[u], u)
+                self.__build_scc_tree_dfs(scc[u], u)
 
     def __query_node_dwarf(self, bb_addr):
         res_buf = ""
@@ -256,13 +266,6 @@ class CFG:
 
     def build_scctree_graphviz(self, filename):
         dot = graphviz.Digraph(comment='SCC Tree')
-        scc_tree = dict() # scc_tree = {u: {v: {w: {} }}} means u -> v -> w
-        for u in self.scc_path:
-            cur_node = scc_tree
-            for each_node in self.scc_path[u]:
-                if each_node not in cur_node:
-                    cur_node[each_node] = dict()
-                cur_node = cur_node[each_node]
         def dfs_scc_tree(node: dict, path: list):
             for v in node:
                 v_path = path + [v]
@@ -271,6 +274,6 @@ class CFG:
                 dot.node("-".join(list(map(str, v_path))), node_anno, style="filled", fillcolor=node_color)
                 dot.edge("-".join(list(map(str, path))), "-".join(list(map(str, v_path))))
                 dfs_scc_tree(node[v], v_path)
-        dfs_scc_tree(scc_tree, [])
+        dfs_scc_tree(self.scc_tree, [])
         with open(f"{filename}", 'w') as f:
             f.write(dot.source)
