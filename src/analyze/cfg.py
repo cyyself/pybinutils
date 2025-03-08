@@ -187,15 +187,15 @@ class CFG:
         return color
     
     def __gen_node_anno(self, u):
-        dom_path_str = str(hex(u))
+        path_str = str(hex(u))
         if u in self.dom_path:
-            dom_path_str = "\n".join([str(hex(p)) for p in self.dom_path[u]])
+            path_str = "\n".join([str(hex(p)) for p in self.dom_path[u]])
         bb_count_log_str = f"{math.log2(self.bb_count[u]):.1f}\n\n" if self.bb_count and u in self.bb_count else ""
         node_dwarf = self.__query_node_dwarf(u)
         if node_dwarf is None:
             node_dwarf = ""
         return bb_count_log_str + \
-               dom_path_str + "\n" + \
+               path_str + "\n" + \
                node_dwarf + \
                f"\n{", ".join([hex(x) for x in self.scc_path[u]]) if u in self.scc_path else ""}" + \
                f"\n{self.dom_bb_size[u] if u in self.dom_bb_size else None}" + \
