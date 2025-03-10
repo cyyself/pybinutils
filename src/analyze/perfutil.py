@@ -61,6 +61,36 @@ def extract_perf_from_file(file, aslr_map=None):
                 res[file][event][pc] += freq
             return res
 
+# file: perf.data
+# return: {file: {event: {symbol: count}}}
+def extract_perf_from_file_with_symbol(file):
+    with tempfile.NamedTemporaryFile() as tmp:
+        os.system("perf script -i {} --no-demangle --full-source-path > {}".format(file, tmp.name))
+        with open(tmp.name, 'r') as f:
+            lines = f.readlines()
+            res = dict()
+            for line in lines:
+                colon_pos = line.find(":")
+                if colon_pos == -1:
+                    continue
+                line_split = line[colon_pos+1:].split()
+                freq = int(line_split[0])
+                event = line_split[1][:-1]
+                symbol = line_split[3]
+                if symbol == '[unknown]':
+                    continue
+                if '+' in symbol:
+                    symbol = symbol.split('+')[0]
+                file = line_split[-1].strip()[1:-1]
+                if file not in res:
+                    res[file] = dict()
+                if event not in res[file]:
+                    res[file][event] = dict()
+                if symbol not in res[file][event]:
+                    res[file][event][symbol] = 0
+                res[file][event][symbol] += freq
+            return res
+
 def perf_extract_deaslr_per_file(perf_extract_file, aslr_map_file, textdump):
     # de-aslr perf data
     res = dict()
