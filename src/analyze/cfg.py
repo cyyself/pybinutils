@@ -167,7 +167,7 @@ class CFG:
                             if each_dwarf[key]:
                                 flags += [key]
                     try:
-                        with open(filename, 'r') as f:
+                        with open(filename, 'r', errors='ignore') as f:
                             lines = f.readlines()
                             res_buf += f"{hex(each_pc)}:{line}:{col}:{" ".join(flags)}: {lines[line-1].strip()}\\l"
                     except:
