@@ -7,7 +7,7 @@ from analyze.bb_utils import basic_block_size
 from analyze.cfg import CFG
 from analyze.perfutil import extract_perf_from_file, perf_extract_deaslr_per_file
 
-def perf_to_bb_count(perf_extract, bb_size: basic_block_size):
+def perf_to_bb_count(perf_extract, bb_size: basic_block_size, instr_event):
     # Count how many time a basic block is executed
     res = dict() # event => bb_addr => count
     for event in perf_extract:
@@ -19,7 +19,7 @@ def perf_to_bb_count(perf_extract, bb_size: basic_block_size):
             bb_addr = bb_size.query_bb_addr(bb_index)
             if bb_addr not in res[event]:
                 res[event][bb_addr] = 0
-            res[event][bb_addr] += perf_extract[event][pc] / bb_size.query_bb_size(bb_index)
+            res[event][bb_addr] += perf_extract[event][pc] / (bb_size.query_bb_size(bb_index) if event == instr_event else 1)
     return res
 
 if __name__ == "__main__":
@@ -30,7 +30,8 @@ if __name__ == "__main__":
     parser.add_argument('-c', '--cfg', type=str, help='CFG output dot file')
     parser.add_argument('-d', '--dom', type=str, help='Dominator Tree output dot file')
     parser.add_argument('-t', '--scctree', type=str, help='SCC Tree output dot file')
-    parser.add_argument('-m', '--metric', type=str, help='perf metric name')
+    parser.add_argument('-m', '--metric', type=str, help='perf metric for instruction count')
+    parser.add_argument('-a', '--additional-metric', type=str, help='perf metric for additional count')
     args = parser.parse_args()
     if args.elf is None and args.symbol is None:
         parser.print_help()
@@ -66,8 +67,10 @@ if __name__ == "__main__":
     dwarf = elf.read_dwarf()
     bb_size = basic_block_size(bb)
     bb_count = None
+    bb_count_a = None
     if perf_file is not None:
-        bb_count_event = perf_to_bb_count(perf_file, bb_size)
+        instr_event = args.metric if args.metric is not None else "instructions"
+        bb_count_event = perf_to_bb_count(perf_file, bb_size, instr_event)
         if args.metric is None:
             if len(bb_count_event) > 1:
                 print("Error: Multiple events found in perf data, please use -m specify the event to use:", file=sys.stderr)
@@ -86,7 +89,16 @@ if __name__ == "__main__":
                 exit(1)
             else:
                 bb_count = bb_count_event[args.metric]
-    cfg = CFG(bb, bb_size, trans_edge, args.symbol, dwarf, bb_count)
+        if args.additional_metric is not None:
+            if args.additional_metric not in bb_count_event:
+                print("Error: Event not found in perf data, please use -a specify the event to use:", file=sys.stderr)
+                print("Available events:", file=sys.stderr)
+                for event in bb_count_event:
+                    print(f"{event}", file=sys.stderr)
+                exit(1)
+            else:
+                bb_count_a = bb_count_event[args.additional_metric]
+    cfg = CFG(bb, bb_size, trans_edge, args.symbol, dwarf, bb_count, bb_count_a)
     if args.cfg is not None:
         cfg.build_graphviz(args.cfg)
     if args.dom is not None:

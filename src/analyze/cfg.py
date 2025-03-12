@@ -18,10 +18,11 @@ class CFG:
                 entry['filename'] = filename
                 self.dwarf_index[pc].append(entry)
     
-    def __build_bb_count(self, bb_count):
+    def __build_bb_count(self, bb_count, bb_count_a=None):
         self.cmapR = None
         self.norm = None
         self.bb_count = bb_count
+        self.bb_count_a = bb_count_a
         if bb_count is not None:
             import matplotlib.cm
             from matplotlib.colors import Normalize
@@ -69,10 +70,10 @@ class CFG:
                     self.in_degree[v] = set()
                 self.in_degree[v].add(u)
 
-    def __init__(self, bb, bb_size, trans_edge, symbol_name, dwarf=None, bb_count=None):
+    def __init__(self, bb, bb_size, trans_edge, symbol_name, dwarf=None, bb_count=None, bb_count_a=None):
         self.symbol_name = symbol_name
         self.__build_dwarf(dwarf)
-        self.__build_bb_count(bb_count)
+        self.__build_bb_count(bb_count, bb_count_a)
         self.bb_symbol = bb[symbol_name]['bb']
         self.insn_class = bb[symbol_name]['insn_class']
         all_bb = set(bb[symbol_name]['bb'].keys())
@@ -190,11 +191,13 @@ class CFG:
         path_str = str(hex(u))
         if u in self.dom_path:
             path_str = "\n".join([str(hex(p)) for p in self.dom_path[u]])
-        bb_count_log_str = f"{math.log2(self.bb_count[u]):.1f}\n\n" if self.bb_count and u in self.bb_count else ""
+        bb_count_log_str = f"{math.log2(self.bb_count[u]):.1f}\n" if self.bb_count and u in self.bb_count else ""
+        bb_count_a_log_str = f"{math.log2(self.bb_count_a[u]):.1f}\n" if self.bb_count_a and u in self.bb_count_a else "\n"
         node_dwarf = self.__query_node_dwarf(u)
         if node_dwarf is None:
             node_dwarf = ""
         return bb_count_log_str + \
+               bb_count_a_log_str + \
                path_str + "\n" + \
                node_dwarf + \
                f"\n{", ".join([hex(x) for x in self.scc_path[u]]) if u in self.scc_path else ""}" + \
