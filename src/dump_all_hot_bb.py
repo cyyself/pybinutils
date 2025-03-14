@@ -3,6 +3,7 @@
 import argparse
 import sys
 import os
+import math
 from arch.arch import arch_tools
 from analyze.bb_utils import basic_block_size
 from analyze.perfutil import extract_perf_from_file_with_symbol, extract_perf_from_file, perf_extract_deaslr_per_file
@@ -102,16 +103,29 @@ if __name__ == "__main__":
             if bb_addr in bb_count[file][args.event] and bb_count[file][args.event][bb_addr] / cur_event_count > args.limit:
                 top_bbs.append(bb_addr)
         for bb_addr in top_bbs:
+            bb_size = None
+            if file in bb_sizes and bb_sizes[file] is not None:
+                bb_id = bb_sizes[file].query_bb_id(bb_addr)
+                if bb_id is not None:
+                    bb_size = bb_sizes[file].query_bb_size(bb_id)
+            bb_freq = f"2**{math.log2(bb_count[file][args.event][bb_addr] / bb_size):.2f}" if bb_size is not None else "N/A"
             outbuf = [
                 f"# function hotness: {cur_event_count / event_count[args.event] * 100:.2f}%",
-                f"# basic block hotness: {bb_count[file][args.event][bb_addr] / cur_event_count * 100:.2f}%"
+                f"# basic block hotness: {bb_count[file][args.event][bb_addr] / cur_event_count * 100:.2f}%",
+                f"# basic block frequency: {bb_freq}",
             ]
             # cal dwarf
             instr_addrs = bbs[file][symbol]['bb'][bb_addr]
             for instr_addr in instr_addrs:
                 if instr_addr in dwarf_indecies[file]:
                     for entry in dwarf_indecies[file][instr_addr]:
-                        filename, line = entry['filename'], entry['line']
+                        filename, line, col = entry['filename'], entry['line'], entry['col']
+                        flags = []
+                        for key in entry:
+                            if key not in ['filename', 'line', 'col', 'pc']:
+                                if entry[key]:
+                                    flags += [key]
+                        outbuf.append(f"# {filename.split('/')[-1]}:{line}:{col}:{' '.join(flags)}")
                         outbuf.append(f"# {src_cache.get_source(filename, line).strip()}")
                 outbuf.append(f"{instr_addrs[instr_addr][1]}")
             with open(f"{args.output}/{symbol}_{hex(bb_addr)}.s", 'w') as f:
