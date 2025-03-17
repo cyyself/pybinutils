@@ -29,6 +29,10 @@ if __name__ == "__main__":
     parser.add_argument('-e', '--event', type=str, help='main event')
     parser.add_argument('-t', '--threshold', type=float, default=0.03, help='function threshold')
     parser.add_argument('-l', '--limit', type=float, default=0.03, help='limit for top basic blocks')
+    parser.add_argument('-c', '--coverage', type=float, default=1.0, help='function coverage threshold')
+    parser.add_argument('-b', '--bb-coverage', type=float, default=1.0, help='basic block coverage threshold')
+    parser.add_argument('-n', '--max-func', type=int, default=1e9, help='max function to dump')
+    parser.add_argument('-m', '--max-bb', type=int, default=1e9, help='max basic block per function to dump')
     parser.add_argument('-o', '--output', type=str, help='output folder')
     args = parser.parse_args()
     if args.perf is None or args.event is None:
@@ -89,19 +93,34 @@ if __name__ == "__main__":
             dwarfs[file] = None
             bb_sizes[file] = None
     src_cache = source_cache()
+    func_coverage = 0
+    nr_func = 0
     for func_hotspot in func_hotspots_mainevent:
         cur_event_count = func_hotspot[2]
         if cur_event_count / event_count[args.event] < args.threshold:
             break
+        func_coverage += cur_event_count / event_count[args.event]
         file = func_hotspot[0]
         symbol = func_hotspot[1]
         if (file not in bbs) or (bbs[file] is None) or (symbol not in bbs[file]):
             continue
         cur_symbol_bb = set(bbs[file][symbol]['bb'].keys())
-        top_bbs = []
+        sorted_bbs = []
         for bb_addr in cur_symbol_bb:
-            if bb_addr in bb_count[file][args.event] and bb_count[file][args.event][bb_addr] / cur_event_count > args.limit:
-                top_bbs.append(bb_addr)
+            if bb_addr in bb_count[file][args.event]:
+                sorted_bbs.append((bb_count[file][args.event][bb_addr] / cur_event_count, bb_addr))
+        sorted_bbs.sort(key=lambda x: x[0], reverse=True)
+        top_bbs = []
+        bb_coverage = 0
+        for _, bb_addr in sorted_bbs:
+            if bb_count[file][args.event][bb_addr] / cur_event_count < args.limit:
+                break
+            top_bbs.append(bb_addr)
+            bb_coverage += bb_count[file][args.event][bb_addr] / cur_event_count
+            if bb_coverage > args.bb_coverage:
+                break
+            if len(top_bbs) >= args.max_bb:
+                break
         for bb_addr in top_bbs:
             bb_size = None
             if file in bb_sizes and bb_sizes[file] is not None:
@@ -130,3 +149,8 @@ if __name__ == "__main__":
                 outbuf.append(f"{instr_addrs[instr_addr][1]}")
             with open(f"{args.output}/{symbol}_{hex(bb_addr)}.s", 'w') as f:
                 f.write("\n".join(outbuf))
+        nr_func += 1
+        if nr_func >= args.max_func:
+            break
+        if func_coverage >= args.coverage:
+            break
