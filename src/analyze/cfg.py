@@ -129,12 +129,16 @@ class CFG:
                     if v in self.in_degree:
                         for w in self.in_degree[v]:
                             if w not in scc_nodes:
-                                if v not in outer_in_degree:
-                                    outer_in_degree[v] = 0
-                                outer_in_degree[v] += 1
+                                outer_in_degree[v] = outer_in_degree.get(v, 0) + 1
                 scc_root = u
                 if len(outer_in_degree) > 0:
-                    scc_root = max(outer_in_degree, key=lambda x: self.dom_tree_size[x])
+                    # choose scc root by the depth of node in dom tree, use smallest first
+                    # if multiple nodes have the same depth, choose the one with the smallest pc
+                    for x in outer_in_degree:
+                        if len(self.dom_path[x]) < len(self.dom_path[scc_root]):
+                            scc_root = x
+                        elif len(self.dom_path[x]) == len(self.dom_path[scc_root]) and x < scc_root:
+                            scc_root = x
                 scc[scc_root] = scc_nodes
                 for v in scc_nodes:
                     if v not in self.scc_path:
