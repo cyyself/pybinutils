@@ -70,3 +70,19 @@ class riscv64_tools(arch_tools):
             if instr in self.insn_db_riscv64:
                 return self.insn_db_riscv64[instr]
         return None
+
+    def get_insn_class_level_dict(self):
+        # TODO: more extensions
+        return {
+            'i': 0,
+            'm': 0,
+            'a': 0,
+            'f': 1,
+            'd': 1,
+            'c': 2,
+            'zba': 3,
+            'zbb': 3,
+            'zbs': 4,
+            'v': 5,
+            'zicond': 6
+        }

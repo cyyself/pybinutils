@@ -240,3 +240,7 @@ class arch_tools:
     def get_insn_class_by_instr(self, instr):
         # Optional feature, return None if not implemented
         return None
+
+    def get_insn_class_level_dict(self):
+        # Optional feature, return None if not implemented
+        return None
