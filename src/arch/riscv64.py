@@ -54,8 +54,15 @@ class riscv64_tools(arch_tools):
         ]
 
     def is_control_flow_end(self, instr):
-        instr = instr[1].split("\t")[0].strip()
-        return instr in ['jalr'] and 'ra' in instr
+        instr_split_t = instr[1].split("\t")
+        instr0 = instr_split_t[0].strip()
+        if instr[0] in ['c.j', 'c.jal', 'c.jr', 'c.jalr']:
+            return True
+        if instr0 in ['jal', 'jalr']:
+            instr1 = instr_split_t[1].strip() if len(instr_split_t) > 1 else ""
+            if not instr1.startswith('ra'):
+                return True
+        return False
 
     def get_insn_class_by_instr(self, instr):
         instr = instr[1].split("\t")[0].strip()
