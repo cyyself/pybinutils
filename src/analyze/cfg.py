@@ -194,7 +194,9 @@ class CFG:
     def __gen_node_anno(self, u):
         path_str = str(hex(u))
         if u in self.dom_path:
-            path_str = "\n".join([str(hex(p)) for p in self.dom_path[u]])
+            path_list = [str(hex(p)) for p in self.dom_path[u]]
+            path_list[-1] = '*' + path_list[-1]
+            path_str = "\n".join(path_list)
         bb_count_log_str = f"{math.log2(self.bb_count[u]):.1f}\n" if self.bb_count and u in self.bb_count else ""
         bb_count_a_log_str = f"{math.log2(self.bb_count_a[u]):.1f}\n" if self.bb_count_a and u in self.bb_count_a else "\n"
         node_dwarf = self.__query_node_dwarf(u)
