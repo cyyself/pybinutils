@@ -22,13 +22,16 @@ if __name__ == "__main__":
             # each workload
             function_hotness = dict()
             bb_hotness = dict()
+            bb_size = dict()
             for root, dirs, files in os.walk(workload_dir):
                 for bb_file in files:
                     function_name = bb_file[:bb_file.rfind('_')]
                     bb_addr = bb_file[bb_file.rfind('_') + 1:bb_file.rfind('.')]
                     stats = dict()
                     with open(os.path.join(workload_dir, bb_file), 'r') as f:
-                        stat_lines = f.readlines()[:NR_STATS]
+                        lines = f.readlines()
+                        stat_lines = lines[:NR_STATS]
+                        cur_bb_size = len([line for line in lines if not line.startswith('#')])
                         for line in stat_lines:
                             key, value = line.strip().split(':')
                             if key.startswith('# '):
@@ -41,7 +44,10 @@ if __name__ == "__main__":
                     function_hotness[function_name] = stats['function hotness']
                     if function_name not in bb_hotness:
                         bb_hotness[function_name] = dict()
+                    if function_name not in bb_size:
+                        bb_size[function_name] = dict()
                     bb_hotness[function_name][bb_addr] = stats['basic block hotness']
+                    bb_size[function_name][bb_addr] = cur_bb_size
             print(f"├── {workload}")
             function_count = 0
             function_coverage = 0
@@ -54,7 +60,7 @@ if __name__ == "__main__":
                 for bb_addr in sorted(bb_hotness[function_name], key=lambda x: bb_hotness[function_name][x], reverse=True):
                     if bb_hotness[function_name][bb_addr] < args.limit:
                         continue
-                    print(f"│   │   ├── {bb_addr}(b): {bb_hotness[function_name][bb_addr]*100:.2f}%")
+                    print(f"│   │   ├── {bb_addr}(b): {bb_hotness[function_name][bb_addr]*100:.2f}%: {bb_size[function_name][bb_addr]}")
                     bb_count += 1
                     bb_coverage += bb_hotness[function_name][bb_addr]
                     if bb_count >= args.max_bb or bb_coverage >= args.bb_coverage:
