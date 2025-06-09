@@ -94,7 +94,7 @@ class arch_tools:
     # Return {symbol_name: {'addr': address, 'instr': {addr: (hex_code, instr)}}}
     def read_textdump(self, objdump_opts=''):
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            if os.system(f'{self.objdump} {objdump_opts} -d {self.elf_path} > {tmp.name}') != 0:
+            if os.system(f'{self.objdump} {objdump_opts} --visualize-jumps -d {self.elf_path} > {tmp.name}') != 0:
                 raise Exception('Failed to objdump ELF file')
             section_re = re.compile(r'^Disassembly of section ([^:]+):$')
             symbol_re = re.compile(r'^([0-9a-fA-F]+)\s+<([^>]+)>:$')
@@ -125,7 +125,7 @@ class arch_tools:
                             # decode address
                             instr_tuple = line.split("\t")
                             addr = int(instr_tuple[0].strip()[:-1], 16)
-                            hex_code = int(instr_tuple[1].strip(), 16)
+                            hex_code = int("".join(filter(lambda x: x in '0123456789abcdef', instr_tuple[1])), 16)
                             rest = "\t".join(instr_tuple[2:])
                             symbols[current_symbol]['instr'][addr] = (hex_code, rest)
             return symbols
