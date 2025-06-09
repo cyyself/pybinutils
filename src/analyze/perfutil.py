@@ -81,8 +81,6 @@ def extract_perf_from_file_with_symbol(file):
                     continue
                 if '+' in symbol:
                     symbol = symbol.split('+')[0]
-                if '.' in symbol:
-                    symbol = symbol.split('.')[0]
                 file = line_split[-1].strip()[1:-1]
                 if file not in res:
                     res[file] = dict()
