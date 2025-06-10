@@ -46,17 +46,12 @@ class aarch64_tools(arch_tools):
         return super().read_textdump('-M no-aliases')
 
     def is_control_flow_instr(self, instr):
-        # instr should be (hex_code, instr) from read_textdump
-        instr = instr[1].split("\t")[0].strip()
-        if '.' in instr:
-            instr = instr.split('.')[0]
-        return instr in [
-            'b', 'bl', 'br', 'blr', 'ret', # v8-branch
-            'cbz', 'cbnz', # v8-compbranch
-            'tbnz', 'tbz', # v8-testbranch
-            'b.c', # v8-condbranch
-            'braa', 'brab', 'blraa', 'blrab', 'braaz', 'brabz', 'blraaz', 'blrabz', 'retaa', 'retab' # pauth-branch
-        ]
+        # instr should be (hex_code, instr, control_flow_dir) from read_textdump
+        if self.is_control_flow_end(instr):
+            return True
+        if instr[2] == 'X' or instr[2] == '-':
+            return True
+        return False
 
     def is_control_flow_end(self, instr):
         instr = instr[1].split("\t")[0].strip()

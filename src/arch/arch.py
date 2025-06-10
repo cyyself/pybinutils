@@ -126,8 +126,9 @@ class arch_tools:
                             instr_tuple = line.split("\t")
                             addr = int(instr_tuple[0].strip()[:-1], 16)
                             hex_code = int("".join(filter(lambda x: x in '0123456789abcdef', instr_tuple[1])), 16)
+                            control_flow_dir = "".join(filter(lambda x: x in '-|+>X,\'', instr_tuple[1]))
                             rest = "\t".join(instr_tuple[2:])
-                            symbols[current_symbol]['instr'][addr] = (hex_code, rest)
+                            symbols[current_symbol]['instr'][addr] = (hex_code, rest, control_flow_dir[-1] if len(control_flow_dir) > 0 else None)
             return symbols
 
     def is_control_flow_instr(self, instr):

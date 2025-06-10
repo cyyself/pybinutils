@@ -46,18 +46,21 @@ class riscv64_tools(arch_tools):
         return super().read_textdump('-M no-aliases -M,max')
 
     def is_control_flow_instr(self, instr):
-        # instr should be (hex_code, instr) from read_textdump
-        instr = instr[1].split("\t")[0].strip()
-        return instr in [
-            'beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu', 'jal', 'jalr', # RV64I
-            'c.beqz', 'c.bnez', 'c.jr', 'c.jalr', 'c.j' # RV64C
-        ]
+        # instr should be (hex_code, instr, control_flow_dir) from read_textdump
+        if self.is_control_flow_end(instr):
+            return True
+        if instr[2] == 'X' or instr[2] == '-':
+            return True
+        return False
 
     def is_control_flow_end(self, instr):
         instr_split_t = instr[1].split("\t")
         instr0 = instr_split_t[0].strip()
+        # For those jump that never return, we consider them as control flow end
         if instr[0] in ['c.j', 'c.jal', 'c.jr', 'c.jalr']:
             return True
+        # For jal and jalr, we consider them as control flow end if the target is not ra
+        # (ra is the return address register, which is used for function calls)
         if instr0 in ['jal', 'jalr']:
             instr1 = instr_split_t[1].strip() if len(instr_split_t) > 1 else ""
             if not instr1.startswith('ra'):
