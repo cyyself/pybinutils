@@ -43,10 +43,13 @@ class arch_tools:
     def open_elf(elf_path):
         from arch.aarch64 import aarch64_tools
         from arch.riscv64 import riscv64_tools
+        from arch.x86_64 import x86_64_tools
         f = open(elf_path, 'rb')
         elf = ELFFile(f)
         if elf['e_machine'] == 'EM_AARCH64':
             return aarch64_tools(elf_path)
+        elif elf['e_machine'] == 'EM_X86_64':
+            return x86_64_tools(elf_path)
         elif elf['e_machine'] == 'EM_RISCV':
             return riscv64_tools(elf_path)
         else:
