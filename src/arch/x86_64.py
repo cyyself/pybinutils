@@ -37,7 +37,7 @@ class x86_64_tools(arch_tools):
         return super().read_dwarf()
 
     def read_textdump(self):
-        return super().read_textdump('-M no-aliases')
+        return super().read_textdump('-M no-aliases --insn-width=20')
 
     def is_control_flow_instr(self, instr):
         # instr should be (hex_code, instr, control_flow_dir) from read_textdump
