@@ -34,6 +34,9 @@ class CFG:
     def __build_graph(self, trans_edge, bb, bb_size, all_bb, symbol_name):
         self.graph = dict()
         self.in_degree = dict()
+        for u in bb[symbol_name]['bb']:
+            self.graph[u] = []
+            self.in_degree[u] = set()
         for u in trans_edge:
             u_bb_addr = bb_size.query_bb_addr(bb_size.query_bb_id(u))
             if u_bb_addr in all_bb:
