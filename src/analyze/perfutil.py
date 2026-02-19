@@ -77,9 +77,11 @@ def extract_perf_from_file_with_symbol(file, has_symbol_offset=False):
         freq = int(line_split[0])
         event = line_split[1][:-1]
         symbol = line_split[3]
+        offset = 0
         if symbol == '[unknown]':
             continue
         if '+' in symbol:
+            offset = int(symbol.split('+')[1], 16)
             symbol = symbol.split('+')[0]
         file = line_split[-1].strip()[1:-1]
         if file not in res:
@@ -92,7 +94,6 @@ def extract_perf_from_file_with_symbol(file, has_symbol_offset=False):
             else:
                 res[file][event][symbol] = 0
         if has_symbol_offset:
-            offset = int(line_split[4], 16) if len(line_split) > 4 else 0
             if offset not in res[file][event][symbol]:
                 res[file][event][symbol][offset] = 0
             res[file][event][symbol][offset] += freq
