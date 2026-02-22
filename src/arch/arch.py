@@ -7,6 +7,8 @@ import re
 from collections import OrderedDict
 import sys
 from elftools.elf.elffile import ELFFile
+from elftools.elf.sections import SymbolTableSection
+from elftools.dwarf.descriptions import describe_form_class
 import pathlib
 
 def insn_db_path():
@@ -54,6 +56,241 @@ class arch_tools:
             return riscv64_tools(elf_path)
         else:
             raise Exception('Unsupported ELF file')
+
+    # Return {symbol_name: [{'addr': address, 'size': size, 'type': type, 'bind': bind, 'section': section_name}, ...]}
+    def read_symbol_table(self):
+        symbols = dict()
+        for section in self.elf.iter_sections():
+            if not isinstance(section, SymbolTableSection):
+                continue
+            for sym in section.iter_symbols():
+                name = sym.name
+                if not name:
+                    continue
+                value = sym.entry['st_value']
+                if value == 0:
+                    continue
+                if name not in symbols:
+                    symbols[name] = []
+                section_name = None
+                shndx = sym.entry['st_shndx']
+                if isinstance(shndx, int) and shndx < self.elf.num_sections():
+                    section_name = self.elf.get_section(shndx).name
+                symbols[name].append({
+                    'addr': value,
+                    'size': sym.entry['st_size'],
+                    'type': sym.entry['st_info']['type'],
+                    'bind': sym.entry['st_info']['bind'],
+                    'section': section_name
+                })
+        return symbols
+
+    def _decode_name(self, value):
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            return value.decode(errors='replace')
+        return str(value)
+
+    def _get_die_name(self, die):
+        if die is None:
+            return None
+        attrs = die.attributes
+        for key in ('DW_AT_linkage_name', 'DW_AT_MIPS_linkage_name', 'DW_AT_name'):
+            if key in attrs:
+                name = self._decode_name(attrs[key].value)
+                if name:
+                    return name
+        return None
+
+    def _die_ranges(self, dwarfinfo, cu, die):
+        attrs = die.attributes
+        ranges = []
+
+        if 'DW_AT_ranges' in attrs:
+            range_lists = dwarfinfo.range_lists()
+            offset = attrs['DW_AT_ranges'].value
+            try:
+                raw_ranges = range_lists.get_range_list_at_offset(offset, cu=cu)
+            except TypeError:
+                raw_ranges = range_lists.get_range_list_at_offset(offset)
+
+            base_addr = 0
+            if 'DW_AT_low_pc' in attrs:
+                base_addr = attrs['DW_AT_low_pc'].value
+            else:
+                top_attrs = cu.get_top_DIE().attributes
+                if 'DW_AT_low_pc' in top_attrs:
+                    base_addr = top_attrs['DW_AT_low_pc'].value
+
+            for entry in raw_ranges:
+                if hasattr(entry, 'base_address'):
+                    base_addr = entry.base_address
+                    continue
+                begin = entry.begin_offset
+                end = entry.end_offset
+                if getattr(entry, 'is_absolute', False):
+                    ranges.append((begin, end))
+                else:
+                    ranges.append((base_addr + begin, base_addr + end))
+            return ranges
+
+        if 'DW_AT_low_pc' in attrs and 'DW_AT_high_pc' in attrs:
+            low_pc = attrs['DW_AT_low_pc'].value
+            high_pc_attr = attrs['DW_AT_high_pc']
+            high_pc_class = describe_form_class(high_pc_attr.form)
+            if high_pc_class == 'address':
+                high_pc = high_pc_attr.value
+            else:
+                high_pc = low_pc + high_pc_attr.value
+            return [(low_pc, high_pc)]
+
+        return ranges
+
+    # Return {symbol: [(start_pc, end_pc), ...]}
+    # Keep original symbol name as-is (including '.' if present).
+    def read_functions_ranges(self):
+        res = dict()
+        dwarfinfo = self.elf.get_dwarf_info()
+
+        for CU in dwarfinfo.iter_CUs():
+            for DIE in CU.iter_DIEs():
+                if DIE.tag != 'DW_TAG_subprogram':
+                    continue
+                symbol_name = self._get_die_name(DIE)
+                if symbol_name is None:
+                    continue
+                try:
+                    ranges = self._die_ranges(dwarfinfo, CU, DIE)
+                except Exception:
+                    ranges = []
+                if len(ranges) == 0:
+                    continue
+                if symbol_name not in res:
+                    res[symbol_name] = []
+                res[symbol_name].extend(ranges)
+
+        symbol_table = self.read_symbol_table()
+        for symbol_name, entries in symbol_table.items():
+            for entry in entries:
+                if entry.get('type') != 'STT_FUNC':
+                    continue
+                start = entry.get('addr', 0)
+                size = entry.get('size', 0)
+                if start == 0 or size == 0:
+                    continue
+                if symbol_name not in res:
+                    res[symbol_name] = []
+                res[symbol_name].append((start, start + size))
+
+        return res
+
+    # Read inline_info from DWARF.
+    # Return {symbol: {inlined_symbol: [(offset_from_symbol_start, offset_from_symbol_end), ...], ...}, ...}
+    # If symbol is specified, only matching symbols are returned.
+    def read_inline_info(self):
+        def add_inline_from_die(res, dwarfinfo, cu, die):
+            if die.tag != 'DW_TAG_inlined_subroutine':
+                return
+            if 'DW_AT_abstract_origin' not in die.attributes:
+                return
+            try:
+                origin_DIE = die.get_DIE_from_attribute('DW_AT_abstract_origin')
+            except Exception:
+                return
+            origin_name = self._get_die_name(origin_DIE)
+            if origin_name is None:
+                return
+            try:
+                ranges = self._die_ranges(dwarfinfo, cu, die)
+            except Exception:
+                ranges = []
+            res.append((origin_name, ranges))
+
+        def normalize_ranges(ranges):
+            uniq = sorted(set(ranges), key=lambda x: (x[0], x[1]))
+            return uniq
+
+        def overlap_offsets(inline_ranges, base_addr):
+            res = []
+            for i_start, i_end in inline_ranges:
+                ov_start = max(i_start, base_addr)
+                ov_end = i_end
+                if ov_start < ov_end:
+                    res.append((ov_start - base_addr, ov_end - base_addr))
+            return res
+
+        dwarfinfo = self.elf.get_dwarf_info()
+        all_functions_ranges = self.read_functions_ranges()
+        symbol_table = self.read_symbol_table()
+
+        selected_functions = dict()
+        for func_name, func_ranges in all_functions_ranges.items():
+            if len(func_ranges) > 0:
+                selected_functions[func_name] = func_ranges
+
+        if len(selected_functions) == 0:
+            return {}
+
+        result = dict()
+        for func_name, func_ranges in selected_functions.items():
+            result[func_name] = dict()
+
+        function_meta = []
+        for func_name, func_ranges in selected_functions.items():
+            symbol_ranges = []
+            for entry in symbol_table.get(func_name, []):
+                if entry.get('type') != 'STT_FUNC':
+                    continue
+                start = entry.get('addr', 0)
+                size = entry.get('size', 0)
+                if start == 0 or size == 0:
+                    continue
+                symbol_ranges.append((start, start + size))
+            if len(symbol_ranges) > 0:
+                normalized = normalize_ranges(symbol_ranges)
+            else:
+                normalized = normalize_ranges(func_ranges)
+            function_base = min(map(lambda x: x[0], normalized))
+            function_meta.append((func_name, normalized, function_base))
+
+        for CU in dwarfinfo.iter_CUs():
+            for DIE in CU.iter_DIEs():
+                if DIE.tag != 'DW_TAG_inlined_subroutine':
+                    continue
+                if 'DW_AT_abstract_origin' not in DIE.attributes:
+                    continue
+                try:
+                    origin_DIE = DIE.get_DIE_from_attribute('DW_AT_abstract_origin')
+                except Exception:
+                    continue
+                origin_name = self._get_die_name(origin_DIE)
+                if origin_name is None:
+                    continue
+                try:
+                    inline_ranges = self._die_ranges(dwarfinfo, CU, DIE)
+                except Exception:
+                    inline_ranges = []
+                if len(inline_ranges) == 0:
+                    continue
+
+                for func_name, func_ranges, function_base in function_meta:
+                    offsets = overlap_offsets(inline_ranges, function_base)
+                    if len(offsets) == 0:
+                        continue
+                    if origin_name not in result[func_name]:
+                        result[func_name][origin_name] = []
+                    result[func_name][origin_name].extend(offsets)
+
+        cleaned_result = dict()
+        for func_name in result:
+            if len(result[func_name]) == 0:
+                continue
+            cleaned_result[func_name] = dict()
+            for inline_name, inline_offsets in result[func_name].items():
+                cleaned_result[func_name][inline_name] = normalize_ranges(inline_offsets)
+
+        return cleaned_result
 
     # Return ({filename: {line: line_num, col: col_num, pc: pc, is_stmt: is_stmt, basic_block: basic_block, end_sequence: end_sequence, prologue_end: prologue_end}})
     def read_dwarf(self):
