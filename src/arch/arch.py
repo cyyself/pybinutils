@@ -4,6 +4,7 @@ import posixpath
 import tempfile
 import os
 import re
+from bisect import bisect_left, bisect_right
 from collections import OrderedDict
 import sys
 from elftools.elf.elffile import ELFFile
@@ -211,14 +212,14 @@ class arch_tools:
             uniq = sorted(set(ranges), key=lambda x: (x[0], x[1]))
             return uniq
 
-        def overlap_offsets(inline_ranges, base_addr):
-            res = []
-            for i_start, i_end in inline_ranges:
-                ov_start = max(i_start, base_addr)
-                ov_end = i_end
-                if ov_start < ov_end:
-                    res.append((ov_start - base_addr, ov_end - base_addr))
-            return res
+        def overlap_offset(inline_range, func_range, base_addr):
+            i_start, i_end = inline_range
+            f_start, f_end = func_range
+            ov_start = max(i_start, f_start)
+            ov_end = min(i_end, f_end)
+            if ov_start < ov_end:
+                return (ov_start - base_addr, ov_end - base_addr)
+            return None
 
         dwarfinfo = self.elf.get_dwarf_info()
         all_functions_ranges = self.read_functions_ranges()
@@ -254,6 +255,18 @@ class arch_tools:
             function_base = min(map(lambda x: x[0], normalized))
             function_meta.append((func_name, normalized, function_base))
 
+        function_range_meta = []
+        for func_name, func_ranges, function_base in function_meta:
+            for func_range in func_ranges:
+                function_range_meta.append((func_range[0], func_range[1], func_name, function_base))
+        function_range_meta.sort(key=lambda x: x[0])
+        range_starts = [item[0] for item in function_range_meta]
+        prefix_max_ends = []
+        max_end_so_far = 0
+        for _, end, _, _ in function_range_meta:
+            max_end_so_far = max(max_end_so_far, end)
+            prefix_max_ends.append(max_end_so_far)
+
         for CU in dwarfinfo.iter_CUs():
             for DIE in CU.iter_DIEs():
                 if DIE.tag != 'DW_TAG_inlined_subroutine':
@@ -274,13 +287,19 @@ class arch_tools:
                 if len(inline_ranges) == 0:
                     continue
 
-                for func_name, func_ranges, function_base in function_meta:
-                    offsets = overlap_offsets(inline_ranges, function_base)
-                    if len(offsets) == 0:
-                        continue
-                    if origin_name not in result[func_name]:
-                        result[func_name][origin_name] = []
-                    result[func_name][origin_name].extend(offsets)
+                for inline_range in inline_ranges:
+                    i_start, i_end = inline_range
+                    left_idx = bisect_right(prefix_max_ends, i_start)
+                    right_idx = bisect_left(range_starts, i_end)
+
+                    for idx in range(left_idx, right_idx):
+                        f_start, f_end, func_name, function_base = function_range_meta[idx]
+                        offset = overlap_offset(inline_range, (f_start, f_end), function_base)
+                        if offset is None:
+                            continue
+                        if origin_name not in result[func_name]:
+                            result[func_name][origin_name] = []
+                        result[func_name][origin_name].append(offset)
 
         cleaned_result = dict()
         for func_name in result:
