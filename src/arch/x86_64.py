@@ -2,6 +2,7 @@
 
 from arch.arch import arch_tools, insn_db_path
 from elftools.elf.elffile import ELFFile
+import subprocess
 import tempfile
 import os
 import json
@@ -310,23 +311,25 @@ class x86_64_tools(arch_tools):
     
     def __init_xed(self):
         self.xed_result = dict()
-        with tempfile.NamedTemporaryFile() as tf:
-            if os.system(f'{self.xed_cmd} -64 -isa-set -i {self.elf_path} > {tf.name} 2>/dev/null') != 0:
-                raise Exception('Failed to disassemble ELF file')
-            with open(tf.name, 'r') as xf:
-                xed_lines = xf.readlines()
-                for line in xed_lines:
-                    if line.startswith('XDIS '):
-                        cur_line = line.split(': ')
-                        pc = int(cur_line[0][5:], 16)
-                        instr_info = cur_line[1].strip().split()
-                        iclass = instr_info[0]
-                        extension = instr_info[1]
-                        isa_set = instr_info[2]
-                        instr_hex = instr_info[3]
-                        instr = int(instr_hex, 16)
-                        isa = translate_isa_type(extension, isa_set)
-                        self.xed_result[instr] = isa
+        result = subprocess.run(
+            f'{self.xed_cmd} -64 -isa-set -i {self.elf_path}',
+            shell=True, capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            raise Exception('Failed to disassemble ELF file')
+        xed_lines = result.stdout.splitlines()
+        for line in xed_lines:
+            if line.startswith('XDIS '):
+                cur_line = line.split(': ')
+                pc = int(cur_line[0][5:], 16)
+                instr_info = cur_line[1].strip().split()
+                iclass = instr_info[0]
+                extension = instr_info[1]
+                isa_set = instr_info[2]
+                instr_hex = instr_info[3]
+                instr = int(instr_hex, 16)
+                isa = translate_isa_type(extension, isa_set)
+                self.xed_result[instr] = isa
 
     def __del__(self):
         for f in self.openfiles:

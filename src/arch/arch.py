@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import posixpath
-import tempfile
+import subprocess
 import os
 import re
 from bisect import bisect_left, bisect_right
@@ -352,43 +352,45 @@ class arch_tools:
 
     # Return {symbol_name: {'addr': address, 'instr': {addr: (hex_code, instr)}}}
     def read_textdump(self, objdump_opts=''):
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            if os.system(f'{self.objdump} {objdump_opts} --visualize-jumps -d {self.elf_path} > {tmp.name}') != 0:
-                raise Exception('Failed to objdump ELF file')
-            section_re = re.compile(r'^Disassembly of section ([^:]+):$')
-            symbol_re = re.compile(r'^([0-9a-fA-F]+)\s+<([^>]+)>:$')
-            symbols = OrderedDict()
-            current_symbol = None
-            current_section = None
-            with open(tmp.name, 'r') as f:
-                lines = f.readlines()
-                for line in lines:
-                    line = line.strip()
-                    if line == "" or line == "...":
-                        continue
-                    s = section_re.match(line)
-                    if s:
-                        current_section = s.group(1)
-                        continue
-                    m = symbol_re.match(line)
-                    if m and m.group(2).startswith("."):
-                        continue
-                    if m:
-                        address = m.group(1)
-                        symbol_name = m.group(2)
-                        current_symbol = symbol_name
-                        if symbol_name not in symbols:
-                            symbols[symbol_name] = {'addr': int(address, 16), 'instr': OrderedDict()}
-                    else:
-                        if current_symbol and current_section == '.text':
-                            # decode address
-                            instr_tuple = line.split("\t")
-                            addr = int(instr_tuple[0].strip()[:-1], 16)
-                            hex_code = int("".join(filter(lambda x: x in '0123456789abcdef', instr_tuple[1])), 16)
-                            control_flow_dir = "".join(filter(lambda x: x in '-|+>X,\'', instr_tuple[1]))
-                            rest = "\t".join(instr_tuple[2:])
-                            symbols[current_symbol]['instr'][addr] = (hex_code, rest, control_flow_dir[-1] if len(control_flow_dir) > 0 else None)
-            return symbols
+        result = subprocess.run(
+            f'{self.objdump} {objdump_opts} --visualize-jumps -d {self.elf_path}',
+            shell=True, capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            raise Exception('Failed to objdump ELF file')
+        section_re = re.compile(r'^Disassembly of section ([^:]+):$')
+        symbol_re = re.compile(r'^([0-9a-fA-F]+)\s+<([^>]+)>:$')
+        symbols = OrderedDict()
+        current_symbol = None
+        current_section = None
+        lines = result.stdout.splitlines()
+        for line in lines:
+            line = line.strip()
+            if line == "" or line == "...":
+                continue
+            s = section_re.match(line)
+            if s:
+                current_section = s.group(1)
+                continue
+            m = symbol_re.match(line)
+            if m and m.group(2).startswith("."):
+                continue
+            if m:
+                address = m.group(1)
+                symbol_name = m.group(2)
+                current_symbol = symbol_name
+                if symbol_name not in symbols:
+                    symbols[symbol_name] = {'addr': int(address, 16), 'instr': OrderedDict()}
+            else:
+                if current_symbol and current_section == '.text':
+                    # decode address
+                    instr_tuple = line.split("\t")
+                    addr = int(instr_tuple[0].strip()[:-1], 16)
+                    hex_code = int("".join(filter(lambda x: x in '0123456789abcdef', instr_tuple[1])), 16)
+                    control_flow_dir = "".join(filter(lambda x: x in '-|+>X,\'', instr_tuple[1]))
+                    rest = "\t".join(instr_tuple[2:])
+                    symbols[current_symbol]['instr'][addr] = (hex_code, rest, control_flow_dir[-1] if len(control_flow_dir) > 0 else None)
+        return symbols
 
     def is_control_flow_instr(self, instr):
         assert False, "Not implemented"
