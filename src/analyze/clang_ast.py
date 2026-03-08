@@ -190,6 +190,75 @@ def extract_loop_regions(
     return loops
 
 
+def extract_loop_regions_by_file(
+    ast: Dict[str, Any],
+    source_file: Optional[str] = None,
+) -> Dict[str, List[Tuple[int, int, int, int]]]:
+    """Walk a clang JSON AST and return loop regions grouped by source file.
+
+    Unlike :func:`extract_loop_regions`, this returns loops from *all* files
+    in the translation unit (including ``#include``d headers), grouped by
+    their source file path.
+
+    Parameters
+    ----------
+    ast : dict
+        The clang JSON AST (as returned by :func:`parse_clang_ast`).
+    source_file : str | None
+        Default file path to assign when the AST does not carry explicit
+        file info for a node (typically the main translation-unit file).
+
+    Returns
+    -------
+    dict mapping file path → list of (begin_line, begin_col, end_line, end_col)
+    """
+    from collections import defaultdict
+
+    LOOP_KINDS = {'ForStmt', 'WhileStmt', 'DoStmt', 'CXXForRangeStmt'}
+    loops_by_file: Dict[str, List[Tuple[int, int, int, int]]] = defaultdict(list)
+
+    def _get_loc(
+        loc_dict: Optional[Dict[str, Any]],
+        last_line: int = 0,
+        last_col: int = 0,
+        last_file: Optional[str] = None,
+    ) -> Tuple[int, int, Optional[str]]:
+        if not loc_dict:
+            return last_line, last_col, last_file
+        if 'expansionLoc' in loc_dict:
+            loc_dict = loc_dict['expansionLoc']
+        line = loc_dict.get('line', last_line)
+        col = loc_dict.get('col', last_col)
+        file = loc_dict.get('file', last_file)
+        return line, col, file
+
+    def _walk(
+        node: Dict[str, Any],
+        last_line: int = 0,
+        last_col: int = 0,
+        last_file: Optional[str] = None,
+    ) -> None:
+        if not isinstance(node, dict):
+            return
+        loc = node.get('loc', {})
+        nl, nc, nf = _get_loc(loc, last_line, last_col, last_file)
+
+        if node.get('kind', '') in LOOP_KINDS:
+            rng = node.get('range', {})
+            bl, bc, bf = _get_loc(rng.get('begin', {}), nl, nc, nf)
+            el, ec, ef = _get_loc(rng.get('end', {}), nl, nc, nf)
+            if bl > 0 and el > 0:
+                key = bf if bf else (source_file or '')
+                if key:
+                    loops_by_file[key].append((bl, bc, el, ec))
+
+        for child in node.get('inner', []):
+            _walk(child, nl, nc, nf)
+
+    _walk(ast)
+    return dict(loops_by_file)
+
+
 def extract_regions(
     ast: Dict[str, Any],
     kinds: set,
